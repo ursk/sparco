@@ -1,0 +1,4 @@
+sparco
+======
+
+Convolutional Sparse Coding
