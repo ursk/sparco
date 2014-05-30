@@ -82,3 +82,15 @@ to build the modules:
 export BLASPATH="/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/"
 - make all
 - if this does not work, set cblas_include manually in the setup.py file
+
+
+
+mpi4py
+-----------
+a working MPI installation is easiest to get with Anaconda python. Run 
+conda install mpi4py
+and it should install both mpi4py and the required openMPI backend.
+
+
+
+
