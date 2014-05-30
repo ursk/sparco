@@ -92,5 +92,14 @@ conda install mpi4py
 and it should install both mpi4py and the required openMPI backend.
 
 
-
+running on an example data set
+-----------
+(this section is heavily work in progress)
+- place data in filename0.h5 format in the ./data directory
+- create sparco/out directory if it does not exist
+- edit config.py and make sure all paths point to the right place ...
+- data in h5 file is expected to be in the dataset /data and in time*channels format
+- python run.py -m ecog -p test
+- prefix (p) determins the model name, i.e. directory where output is saved
+- model (m) determins which kind of model to run, i.e. gautam's lfp data or ecog data
 
