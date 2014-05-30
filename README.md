@@ -81,3 +81,4 @@ to build the modules:
 - set $BLASPATH to point to the directory cblas.h is in, e.g.
 export BLASPATH="/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/"
 - make all
+- if this does not work, set cblas_include manually in the setup.py file
