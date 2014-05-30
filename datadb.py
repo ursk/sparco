@@ -293,7 +293,7 @@ class EcogDB(DB):
 
 
 
-class ClimateDB(DB):
+class GautamDB(DB):
     """
     Sample from Polytrode data
     """
