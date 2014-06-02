@@ -103,3 +103,16 @@ running on an example data set
 - prefix (p) determins the model name, i.e. directory where output is saved
 - model (m) determins which kind of model to run, i.e. gautam's lfp data or ecog data
 
+example mpi call:
+- /Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m ecog -p test_mpi3
+- 
+
+Setting parameters
+--------------
+kwargs gets passed to datadb and contains parameters pertaining to data handling
+- channels: subset of channels to use. does not have to be contigous, e.g. pick 'good' channels
+- filenames: list of full paths to all the data files (if more than one, named sequentially, as in config.py)
+- ...
+
+
+p
