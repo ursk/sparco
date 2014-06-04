@@ -11,7 +11,8 @@ Note:
 """
 import numpy as np
 from mpi4py import MPI
-from sptools import (vnorm, Logger, BasisWriter, attributesFromDict, set_paths, blur)
+from sptools import (vnorm, Logger, BasisWriter, attributesFromDict, blur)
+from config import set_paths
 import learner
 from time import time as now
 import ipdb
@@ -58,7 +59,7 @@ class Spikenet(object):
         self.basis_dims = (self.C, self.N, self.P)
         self.coeff_dims = (self.N, self.T + self.P - 1)
         
-        self.path = set_paths() # (URS) was hardcoded to ~/sn/py/spikes, change it?
+        self.path = set_paths(out=True) # (URS) was hardcoded to ~/sn/py/spikes, change it?
         
         self.rank, self.procs, self.root = mpi
         if self.bs % self.procs != 0:
