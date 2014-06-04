@@ -81,3 +81,38 @@ to build the modules:
 - set $BLASPATH to point to the directory cblas.h is in, e.g.
 export BLASPATH="/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/"
 - make all
+- if this does not work, set cblas_include manually in the setup.py file
+
+
+
+mpi4py
+-----------
+a working MPI installation is easiest to get with Anaconda python. Run 
+conda install mpi4py
+and it should install both mpi4py and the required openMPI backend.
+
+
+running on an example data set
+-----------
+(this section is heavily work in progress)
+- place data in filename0.h5 format in the ./data directory
+- create sparco/out directory if it does not exist
+- edit config.py and make sure all paths point to the right place ...
+- data in h5 file is expected to be in the dataset /data and in time*channels format
+- python run.py -m ecog -p test
+- prefix (p) determins the model name, i.e. directory where output is saved
+- model (m) determins which kind of model to run, i.e. gautam's lfp data or ecog data
+
+example mpi call:
+- /Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m ecog -p test_mpi3
+- 
+
+Setting parameters
+--------------
+kwargs gets passed to datadb and contains parameters pertaining to data handling
+- channels: subset of channels to use. does not have to be contigous, e.g. pick 'good' channels
+- filenames: list of full paths to all the data files (if more than one, named sequentially, as in config.py)
+- ...
+
+
+p
