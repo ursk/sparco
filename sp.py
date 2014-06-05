@@ -9,70 +9,117 @@ Key:
 Note:
 1. The kernels are convolution kernels. 
 """
+import os
 import numpy as np
 from mpi4py import MPI
 from sptools import (vnorm, Logger, BasisWriter, attributesFromDict, set_paths, blur)
 import learner
 from time import time as now
-import ipdb
+# import ipdb
 import matplotlib.pyplot as plt
 
-
 class Spikenet(object):
-    
-    def __init__(self, dims, db,
-                 bs=10, niter=100, 
-                 learner=None,
-                 largs=None,
-                 inference=None,
-                 iargs={'lam': 0.1, 'maxit':50, 'debug':False},
-                 disp=5, mpi=(0,1,0),
-                 movie=False, prefix='vanilla',
-                 logger=True, echo=True, plots=True):
+    """
+    Settings:
+     dims (C, N, P, T)
+      C - channels
+      N - kernels
+      P - time points in convolution kernel
+      T - time points in raw data (T >> P)
+     db - data source
+    Inference and learning
+     bs        - batch size to be divided among procs
+     inference - inference method
+     iargs     - inference optional args
+     learner   - learning method
+     largs     - learninsparg optional args
+    mpi       - (rank, procs, root)
+    Output:
+     disp      - save fig on this many iterations
+     logger    - log output to file
+     echo      - echo stdout to console
+     movie     - use movie basis writer (for natural scenes)
+     prefix    - prepend to output file names
+     plots     - whether or not to output plots (due to memory leak in matplotlib)
+    """
+  
+    def __init__(self, **kwargs):
         """
         Params
-         dims (C, N, P, T)
-          C - channels
-          N - kernels
-          P - time points in convolution kernel
-          T - time points in raw data (T >> P)
-         db - data source
-        Inference and learning
-         bs        - batch size to be divided among procs
-         inference - inference method
-         iargs     - inference optional args
-         learner   - learning method
-         largs     - learning optional args
-        mpi       - (rank, procs, root)
-        Output:
-         disp      - save fig on this many iterations
-         logger    - log output to file
-         echo      - echo stdout to console
-         movie     - use movie basis writer (for natural scenes)
-         prefix    - prepend to output file names
-         plots     - whether or not to output plots (due to memory leak in matplotlib)
         """
-        attributesFromDict(locals())
+        home = os.path.expanduser('~')
+        rank = MPI.COMM_WORLD.Get_rank()
+        procs = MPI.COMM_WORLD.Get_size()
+        root = 0
+        defaults = {
+          'mpi': (rank, procs, root),
+          'dims': None,
+          'db': None,
+          'bs': 10,
+          'niter': 100,
+          'disp': 100,
+          'plots': True,
+          'inference_function': sparseqn.sparseqn_batch,
+          'inference_settings': {
+            'lam': 0,
+            'maxit': 15,
+            'debug': False,
+            'positive': False,
+            'delta': 0.0001,
+            'past': 6
+            },
+          'learner_class': learner.AngleChasing,
+          'learner_settings': {
+            'eta': .00001,
+            'up': 1.01,
+            'down': .99,
+            'target': 1.,
+            'thresh': 2.,
+            'mpi': (rank, procs, root),
+            'c': 500,
+            'cmax': 1,
+            'smooth': False
+            },
+          'writer_settings':{
+            'output_path': os.path.join(home, 'sn', 'py', 'spikes'),
+            'prefix': 'vanilla',
+            'movie': False,
+            'plots': True,
+            },
+          'logger_active': False,
+          'log_path': os.path.join(output_path, "{0}.log".format(prefix)),
+          'logger_settings': {
+            'echo': True,
+            'rank': rank,
+            }
+          }
+        settings = merge(defaults, kwargs)
+        attributesFromDict(settings)
         
-        self.C, self.N, self.P, self.T = dims
+        self.C, self.N, self.P, self.T = self.dims
         self.basis_dims = (self.C, self.N, self.P)
         self.coeff_dims = (self.N, self.T + self.P - 1)
         
-        self.path = set_paths() # (URS) was hardcoded to ~/sn/py/spikes, change it?
+        # self.path = set_paths() # (URS) was hardcoded to ~/sn/py/spikes, change it?
         
         self.rank, self.procs, self.root = mpi
         if self.bs % self.procs != 0:
             raise ValueError('Batch size not multiple of number of procs')
             
-        self.learner = learner(self.obj, dims, **largs)
-        if 'lam' in iargs:
-            self.lam = self.iargs['lam']
-        else: self.lam = 0.
+        self.learner = learner_class(self.obj, dims, **self.learner_settings)
+        self.lam = self.inference_settings['lam']
+        self.prefix = self.writer_settings['prefix']
         
         # initialize logging and output
-        if logger: Logger.start_logger(self.path['out'], self.rank, echo, self.prefix)
-        self.basis_writer = BasisWriter(self.path, movie=self.movie,
-                                        prefix=self.prefix, plots=plots)
+        if self.logger_active:
+          log_file = open(config['log_path'] , 'w+', 0)
+          sys.stdout = Logger(sys.stdout, log_file, **self.logger_settings)
+          sys.stderr = Logger(sys.stderr, log_file, **self.logger_settings)
+          # sys.stderr = Logger(sys.stderr, logFile, rank, echo)
+          # Logger.start_logger(self.path['out'], self.rank, echo, self.prefix)
+        self.basis_writer = BasisWriter(**self.writer_settings)
+        # self.basis_writer = BasisWriter(self.path, movie=self.movie,
+        #                                 prefix=self.prefix, plots=plots)
         
     
     def init_basis(self, phi=None, file=None, filter=False, correlated=False):
@@ -172,7 +219,7 @@ class Spikenet(object):
             
             # infer coefficients
             tic = now()
-            parA = self.inference(self.phi, parX, **self.iargs)
+            parA = self.inference_function(self.phi, parX, **self.iargs)
             MPI.COMM_WORLD.Gather(parA, A, self.root)
             sparse_tic += now() - tic
             

@@ -35,6 +35,23 @@ def attributesFromDict(d):
     for n, v in d.iteritems():
         setattr(self, n, v)
 
+def merge(*dicts):
+  """Merge an arbitrary number of dictionaries.
+
+  Values in dictionaries occurring later in the argument list have priority.
+
+  Args:
+    *dicts: Arbitrary number of configuration dictionaries.
+  """
+  def mergeInner(config1, config2):
+    for k,v in config2.items():
+      if type(v) is dict and config1.has_key(k):
+        config1[k].update(config2[k])
+      else:
+        config1[k] = config2[k]
+    return config1
+  return reduce(mergeInner, dicts)
+
 def blur(phi, window=.2):
     """
     Gaussian blur of basis functions
@@ -86,7 +103,7 @@ class Logger(object):
 
 class BasisWriter(object):
 
-    def __init__(self, path, prefix=None, movie=False, plots=True):
+    def __init__(self, path=None, prefix=None, movie=False, plots=True):
         """
         path    - root path of output
         movie   - if input data is natural scenes, modify output

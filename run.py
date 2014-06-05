@@ -50,9 +50,6 @@ logger = False
 	
 print 'Rank = %d, procs = %d, root = %d' % mpi
 
-
-
-
 def gautam(file=None, prefix='gautam'):
 	"""
 	(URS) Dummy climate data to test the toolbox
