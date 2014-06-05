@@ -70,11 +70,12 @@ def set_paths():
     """
     import getpass
     path = dict()
-    hostname = socket.gethostname()
-    home = os.path.expanduser('~')
-    path['root'] = os.path.join(home, 'sn', 'py', 'spikes')
-    path['data'] = os.path.join(path['root'], 'data')            
-    path['out'] = os.path.join(path['root'], 'out')
+    #hostname = socket.gethostname()
+    #home = os.path.expanduser('~')
+    #path['root'] = os.path.join(home, 'sn', 'py', 'spikes')
+    #path['data'] = os.path.join(path['root'], 'data')            
+    #path['out'] = os.path.join(path['root'], 'out')
+    path['out'] = 'out'
     return path
 
 

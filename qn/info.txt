@@ -10,3 +10,8 @@ to build the modules:
 - set $BLASPATH to point to the directory cblas.h is in, e.g.
 export BLASPATH="/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/"
 - make all
+
+
+With a fresh Anaconda install, need to:
+- conda install cython
+- conda install mpi4py

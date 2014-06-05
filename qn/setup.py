@@ -6,7 +6,9 @@ import os
 
 
 cblas_include = os.getenv('BLASPATH')
-print cblas_include
+print "looking for cblas in", cblas_include
+if cblas_include is None: raise Exception("I can't find cblas_include!") 
+
 include_dirs = [numpy.get_include(), cblas_include]
 library_dirs = []
 

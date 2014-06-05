@@ -52,7 +52,7 @@ print 'Rank = %d, procs = %d, root = %d' % mpi
 
 def gautam(file=None, prefix='gautam'):
 	"""
-	(URS) Dummy climate data to test the toolbox
+	(URS) Dummy gautam data to test the toolbox
 	based on lowpass
 	"""
 	# choose channels
@@ -95,7 +95,7 @@ def gautam(file=None, prefix='gautam'):
 		basedir = os.path.join(home, 'Dropbox', 'nersc', 'data')
 		#basedir = os.path.join('/project/projectdirs/m636/neuro/polytrode/csc', 'data')
 		files =range(1)
-		#filenames = ['full_climate_testdata%d.h5' % (i) for i in files]	
+		#filenames = ['full_gautam_testdata%d.h5' % (i) for i in files]	
 		filenames = ['gautam_testdata%d.h5' % (i) for i in files]
 		full = [os.path.join(basedir, f) for f in filenames]
 		filenames = []
@@ -109,14 +109,14 @@ def gautam(file=None, prefix='gautam'):
 				  'resample': 2,
 				  'cull': 0.,
 				  'maxcull': 10., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
-				  'std_threshold': 0., # default was 2 but does not work with climate data?
+				  'std_threshold': 0., # default was 2 but does not work with gautam data?
 				  'subsample': 2, # downsampling 128 1ms to 64 2ms
 				  'normalize': 'patch',
 				  'smooth': False,
 				  'line': False,
 				  'Fs': 1000}
 				  
-		db = datadb.ClimateDB(dims, **kwargs)
+		db = datadb.gautamDB(dims, **kwargs)
 		
 	p = {'db': db,
 		 'bs': bs,
@@ -237,7 +237,7 @@ def ecog(file=None, prefix='ecog'):
 				  'resample': 1,
 				  'cull': 0.,
 				  'maxcull': 100., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
-				  'std_threshold': 0., # default was 2 but does not work with climate data?
+				  'std_threshold': 0., # default was 2 but does not work with gautam data?
 				  'subsample': 1, # downsampling 128 1ms to 64 2ms
 				  'normalize': 'patch',
 				  'smooth': False,
@@ -349,14 +349,14 @@ paper if we show on white noise that gamma power is too slow to resolve the RF. 
 50Hz is 20ms long, noise frames are 50ms, so probably not. ) 
 
 Call to run this locally:
-  /opt/local/bin/openmpirun -np 3 /opt/local/bin/python run.py -m climate -p gautam_pca_whitened
+  /opt/local/bin/openmpirun -np 3 /opt/local/bin/python run.py -m gautam -p gautam_pca_whitened
 since macports is the only python that understands MPI. No more!   
-  /Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m climate -p gautam_pca_whitened
+  /Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m gautam -p gautam_pca_whitened
 actually works now!
 
 Framework:
 run.py 
-  db = datadb.ClimateDB(dims, **kwargs)
+  db = datadb.gautamDB(dims, **kwargs)
   db is packaged into p
   sn = Spikenet(dims, **p) # in sp.py
   sn.learn()
