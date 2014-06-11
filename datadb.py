@@ -15,7 +15,6 @@ from matplotlib import pyplot as plt
 import matplotlib.mlab as mlab
 from numpy.random import multinomial
 from time import time as now
-import ipdb
     
 class DB(object):
     def __init__(self, dims):
