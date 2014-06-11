@@ -15,7 +15,6 @@ from mpi4py import MPI
 from sptools import (merge, vnorm, Logger, BasisWriter, attributesFromDict, set_paths, blur)
 import learner
 from time import time as now
-# import ipdb
 import matplotlib.pyplot as plt
 import sparseqn
 
@@ -222,7 +221,7 @@ class Spikenet(object):
             
             # infer coefficients
             tic = now()
-            parA = self.inference_function(self.phi, parX, **self.iargs)
+            parA = self.inference_function(self.phi, parX, **self.inference_settings)
             MPI.COMM_WORLD.Gather(parA, A, self.root)
             sparse_tic += now() - tic
             

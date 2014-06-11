@@ -119,16 +119,16 @@ class BasisWriter(object):
         # create directories if necessary
         if prefix is not None:
             try:
-                os.makedirs(os.path.join(self.path['out'], self.prefix))
+                os.makedirs(os.path.join(self.output_path, self.prefix))
             except OSError:
                 pass
             try:
                 if self.plots:
-                    os.makedirs(os.path.join(self.path['out'], self.prefix, 'unsorted'))
-                    os.makedirs(os.path.join(self.path['out'], self.prefix, 'sorted'))
-                    os.makedirs(os.path.join(self.path['out'], self.prefix, 'line'))
-                    os.makedirs(os.path.join(self.path['out'], self.prefix, 'reconstruction'))
-                    os.makedirs(os.path.join(self.path['out'], self.prefix, 'basis'))                    
+                    os.makedirs(os.path.join(self.output_path, self.prefix, 'unsorted'))
+                    os.makedirs(os.path.join(self.output_path, self.prefix, 'sorted'))
+                    os.makedirs(os.path.join(self.output_path, self.prefix, 'line'))
+                    os.makedirs(os.path.join(self.output_path, self.prefix, 'reconstruction'))
+                    os.makedirs(os.path.join(self.output_path, self.prefix, 'basis'))                    
             except OSError:
                 # [TODO] This will fail if any of above fails
                 pass
@@ -176,13 +176,13 @@ class BasisWriter(object):
         order = np.argsort(self.variance)[::-1]
 
         # filenames for output
-        unsorted = os.path.join(self.path['out'], self.prefix, 'unsorted',
+        unsorted = os.path.join(self.output_path, self.prefix, 'unsorted',
                                 'basis-%s.png' % code)
-        sorted = os.path.join(self.path['out'], self.prefix, 'sorted',
+        sorted = os.path.join(self.output_path, self.prefix, 'sorted',
                               'sorted-basis-%s.png' % code)
-        lineplt = os.path.join(self.path['out'], self.prefix, 'line',
+        lineplt = os.path.join(self.output_path, self.prefix, 'line',
                                'line-basis-%s.png' % code)
-        reconplt = os.path.join(self.path['out'], self.prefix, 'reconstruction',
+        reconplt = os.path.join(self.output_path, self.prefix, 'reconstruction',
                                'reconstruction-%s.png' % code)
         
         title='%05d l0:%0.3f e:%0.3f' % (iteration, l0, error)
@@ -200,7 +200,7 @@ class BasisWriter(object):
                 #line_plot(phi, lineplt, figno=4)                                        
 
         # save basis to file (overwrite)
-        basisf = os.path.join(self.path['out'], self.prefix, 'basis',
+        basisf = os.path.join(self.output_path, self.prefix, 'basis',
                               'basis-%s.h5' % code)
         print "DEBUG: Trying to open file", basisf
         h5 = h5py.File(basisf, 'w')
@@ -213,7 +213,7 @@ class BasisWriter(object):
         h5.close()
 
         # create soft-link to basis file
-        linkf = os.path.join(self.path['out'], self.prefix, 'basis.h5')
+        linkf = os.path.join(self.output_path, self.prefix, 'basis.h5')
         try: os.remove(linkf)
         except: pass
         os.symlink(basisf, linkf)
@@ -375,7 +375,6 @@ def display_basis(phi, title=None, filename=None, cmap=plt.cm.jet, params=None,
     I = np.zeros((n*nrows + (nrows+1)*buf - 2,
                   o*ncols + (ncols+1)*buf - 3))
     for i in range(m):
-        import ipdb
         # flip along channel axis (deep sites at bottom)
         patch = phi[i,::-1]
         sx = (o + buf) * (i % ncols) + buf - 1
