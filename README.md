@@ -92,7 +92,7 @@ export BLASPATH="/System/Library/Frameworks/vecLib.framework/Versions/A/Headers/
 mpi4py
 -----------
 a working MPI installation is easiest to get with Anaconda python. Run 
-conda install mpi4py
+  conda install mpi4py
 and it should install both mpi4py and the required openMPI backend.
 
 
@@ -108,8 +108,9 @@ running on an example data set
 - model (m) determins which kind of model to run, i.e. gautam's lfp data or ecog data
 
 example mpi call:
-- /Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m ecog -p test_mpi3
-- 
+/Users/urs/anaconda/bin/mpirun -np 3 /Users/urs/anaconda/bin/python run.py -m ecog -p test_mpi3
+
+There is a bug with Anaconda that it is looking for mpi stuff in the folder /Anaconda1Anaconda2Anaconda3, the easiest solution is to symlink to the correct Anaconda folder
 
 Setting parameters
 --------------
