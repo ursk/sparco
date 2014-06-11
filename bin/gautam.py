@@ -11,6 +11,9 @@ from mpi4py import MPI
 
 sys.path.append(
 		os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..')))
+sys.path.append(
+		os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..', 'qn')))
+
 from datadb import DB
 from sparse_coder import SparseCoder
 
