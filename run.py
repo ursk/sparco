@@ -31,7 +31,6 @@ reload(learner)
 # import blbfgs # not used here 
 #import sptools
 import os, sys
-import ipdb
 import h5py
 
 from config import set_paths

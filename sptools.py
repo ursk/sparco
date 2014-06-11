@@ -344,7 +344,6 @@ def display_basis(phi, title=None, filename=None, cmap=plt.cm.jet, params=None,
     I = np.zeros((n*nrows + (nrows+1)*buf - 2,
                   o*ncols + (ncols+1)*buf - 3))
     for i in range(m):
-        import ipdb
         # flip along channel axis (deep sites at bottom)
         patch = phi[i,::-1]
         sx = (o + buf) * (i % ncols) + buf - 1

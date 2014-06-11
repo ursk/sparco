@@ -15,7 +15,6 @@ from sptools import (vnorm, Logger, BasisWriter, attributesFromDict, blur)
 from config import set_paths
 import learner
 from time import time as now
-import ipdb
 import matplotlib.pyplot as plt
 
 

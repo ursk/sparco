@@ -3,7 +3,6 @@ Calls cython quasinewton algorithm with batches
 """
 import numpy as np
 import quasinewton as qn
-import ipdb
 import matplotlib.pyplot as plt
 
 class Objective(object):
