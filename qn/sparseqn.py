@@ -3,10 +3,10 @@ Calls cython quasinewton algorithm with batches
 """
 import numpy as np
 import sys
+import os
 sys.path.append( os.path.normpath(os.path.join(os.path.realpath(__file__), '..')))
 import quasinewton as qn
 import imp
-import os
 # qnpath = os.path.abspath(os.path.join(os.path.realpath(__file__), '..', 'quasinewton.pxd'))
 # qn = imp.load_source('qn', qnpath)
 
