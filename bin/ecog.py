@@ -34,16 +34,16 @@ db = DB(**{
 		'dims': dims,
 		'channels': channels,
 		'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
-		'cache': 50, #T*subsample*cache  determines the batch size
-		'resample': 2,
+		'cache': 2, #T*subsample*cache  determines the batch size
+		'resample': 1,
 		'cull': 0.,
-		'maxcull': 10., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
+		'maxcull': 100., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
 		'std_threshold': 0., # default was 2 but does not work with climate data?
-		'subsample': 2, # downsampling 128 1ms to 64 2ms
+		'subsample': 1, # downsampling 128 1ms to 64 2ms
 		'normalize': 'patch',
 		'smooth': False,
 		'line': False,
-		'Fs': 1000
+		'Fs': 200
 		})
 
 ladder = [[0.1,	 5,	 2000, 5.],

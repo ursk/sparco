@@ -53,7 +53,7 @@ class DB(object):
         """
         attributesFromDict(locals())
         self.C, self.N, self.P, self.T = dims
-        self.channels = self.channels or np.arange(self.C)
+        self.channels = self.channels if not self.channels == None else np.arange(self.C)
         if self.C != len(self.channels):
 						raise ValueError()
         self.t = 0
