@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import os
 sys.path.append( os.path.normpath(os.path.join(os.path.realpath(__file__), '..')))
+print sys.path
 import quasinewton as qn
 import imp
 # qnpath = os.path.abspath(os.path.join(os.path.realpath(__file__), '..', 'quasinewton.pxd'))
