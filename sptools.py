@@ -47,21 +47,6 @@ def blur(phi, window=.2):
         philp[:,i] = signal.sepfir2d(phi[:,i], g, g)
     return philp
 
-def set_paths():
-    """
-    Set paths depending on machine and username
-    """
-    import getpass
-    path = dict()
-    #hostname = socket.gethostname()
-    #home = os.path.expanduser('~')
-    #path['root'] = os.path.join(home, 'sn', 'py', 'spikes')
-    #path['data'] = os.path.join(path['root'], 'data')            
-    #path['out'] = os.path.join(path['root'], 'out')
-    path['out'] = 'out'
-    return path
-
-
 class Logger(object):
     """
     Redirect stdout and stderr to a file and optionally echo to original stdout.
@@ -105,7 +90,7 @@ class BasisWriter(object):
             try:
                 os.makedirs(os.path.join(self.path['out'], self.prefix))
             except OSError:
-                pass
+                print "ERROR! out", self.path['out'], "prefix", self.prefix
             try:
                 if self.plots:
                     os.makedirs(os.path.join(self.path['out'], self.prefix, 'unsorted'))

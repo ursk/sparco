@@ -1,19 +1,13 @@
-sparco
+sparco - Convolutional Sparse Coding
 ======
 
-Convolutional Sparse Coding
 
 
 
 
 
 
-
-
-Amir's sn/spikes package 
-------------------------
-
-Dependencies
+Installation
 ------------
 1. uses a custom quasinewton package that depends on "tokyo" for BLAS bindings.
 2. uses mpi4py which requires openMPI to be installed
@@ -43,7 +37,7 @@ saves learning progress. Images of basis functions and sparsified data.
 
 
 Notes for usage:
-----------------
+
 - if mean and var are supplied, mean^2 has to be smaller than var
 - if mean and var are not supplied, the data is assumed to be normalized
 
@@ -67,7 +61,17 @@ cd $SCRATCH
 
 
 
-qn
+
+Running MPI jobs:
+-----------------------
+The easiest way to get this to work is with Anaconda python. 
+Conda install mpi4py installs not only the python package but also the mpi backend. 
+Run jobs like
+/Users/urs/anaconda/bin/mpirun -np 4 /Users/urs/anaconda/bin/python parallel_sparsify.py 
+
+There is a bug with Anaconda that it looks for mpi stuff in the folder /Anaconda1Anaonda2Anaconda3, the easiest way to solve this is with a simlink
+
+Notes on qn
 -----------
 quasinewton:
 Amir's implementation of orthant-wise lbfgs with L1 constraint

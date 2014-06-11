@@ -11,7 +11,7 @@ Several different test cases:
 """
 import mpi4py.rc
 mpi4py.rc.profile('MPE')
-from mpi4py import MPI # Anaconda dies here! 
+from mpi4py import MPI
 	
 import matplotlib
 matplotlib.use('Agg')
@@ -33,15 +33,11 @@ reload(learner)
 import os, sys
 import ipdb
 import h5py
-	
-home = os.path.expanduser('~')
-path1 = os.path.join(home, 'Dropbox/nersc/csc/spikes/qn') # Cerberus
-path2 = os.path.join(home, 'csc/spikes/qn')				  # Hopper
-if not path1 in sys.path: sys.path.append(path1)
-if not path2 in sys.path: sys.path.append(path2)
-print "pathes", path1, path2
-import sparseqn	 
-	
+
+from config import set_paths
+set_paths(qn=True)
+import sparseqn
+
 rank = MPI.COMM_WORLD.Get_rank()
 procs = MPI.COMM_WORLD.Get_size()
 root = 0
@@ -190,7 +186,7 @@ def ecog(file=None, prefix='ecog'):
 	print 'Using channels: ', channels
 
 	C = len(channels)
-	N = 20 # basis functions
+	N = 100 # basis functions
 	P = 64 # maybe this is the amount of shift?
 	T = 2*P # 128 time steps in one basis
 
@@ -219,32 +215,21 @@ def ecog(file=None, prefix='ecog'):
 	# initialize data database
 	db = None
 	if rank == root:
-
-		# choose data files
-		home = os.path.expanduser('~')
-		basedir = os.path.join(home, 'Dropbox_outsource', 'nersc', 'data', 'EC2_CV_trials')
-		#basedir = os.path.join('/project/projectdirs/m636/neuro/polytrode/csc', 'data')
-		files = range(1,50)
-		filenames = ['EC2_CV_trl%d.h5' % (i) for i in files]
-		#filenames = ['EC2_CV.nrl5']
-		full = [os.path.join(basedir, f) for f in filenames]
 		
-		filenames = []
-		for f in full:
-			if os.path.exists(f): filenames.append(f)
-        
-		kwargs = {'channels': channels,
+		filenames = set_paths(data=True)
+		
+		kwargs = {'channels':  channels,
 				  'filenames': filenames,
-				  'cache': 2, #T*subsample*cache  determines the batch size
-				  'resample': 1,
-				  'cull': 0.,
-				  'maxcull': 100., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
+				  'cache':     50,     # T*subsample*cache  determines the batch size (had this set to 2 for trial data)
+				  'resample':  1,      #
+				  'cull':      0.,     #
+				  'maxcull':   100.,   # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
 				  'std_threshold': 0., # default was 2 but does not work with gautam data?
-				  'subsample': 1, # downsampling 128 1ms to 64 2ms
-				  'normalize': 'patch',
-				  'smooth': False,
-				  'line': False,
-				  'Fs': 200}
+				  'subsample': 1,      # downsampling 128 1ms to 64 2ms
+				  'normalize': 'patch',# 
+				  'smooth':    False,  # 
+				  'line':      False,  #
+				  'Fs':        200}    # 
 
 		db = datadb.EcogDB(dims, **kwargs)
 
