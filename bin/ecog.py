@@ -33,7 +33,7 @@ dims = (len(channels), 100, 64, 2*64)
 db = DB(**{
 		'dims': dims,
 		'channels': channels,
-		'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
+    'filenames': glob.glob(os.path.join(args.input_directory, '*.h5'))[0:200],
 		'cache': 2, #T*subsample*cache  determines the batch size
 		'resample': 1,
 		'cull': 0.,
