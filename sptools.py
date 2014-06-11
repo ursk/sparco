@@ -103,14 +103,14 @@ class Logger(object):
 
 class BasisWriter(object):
 
-    def __init__(self, path=None, prefix=None, movie=False, plots=True):
+    def __init__(self, output_path=None, prefix=None, movie=False, plots=True):
         """
         path    - root path of output
         movie   - if input data is natural scenes, modify output
         prefix  - prefix to output files (and directories)
         plots   - whether or not to save plots
         """
-        self.path = path
+        self.output_path = output_path
         self.movie = movie
         self.prefix = prefix
         self.plots = plots

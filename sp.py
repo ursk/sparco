@@ -12,7 +12,7 @@ Note:
 import os
 import numpy as np
 from mpi4py import MPI
-from sptools import (vnorm, Logger, BasisWriter, attributesFromDict, set_paths, blur)
+from sptools import (merge, vnorm, Logger, BasisWriter, attributesFromDict, set_paths, blur)
 import learner
 from time import time as now
 # import ipdb
@@ -88,14 +88,16 @@ class Spikenet(object):
             'plots': True,
             },
           'logger_active': False,
-          'log_path': os.path.join(output_path, "{0}.log".format(prefix)),
+          'log_path': os.path.join(home, 'sn', 'py', "vanilla.log"),
           'logger_settings': {
             'echo': True,
             'rank': rank,
             }
           }
         settings = merge(defaults, kwargs)
-        attributesFromDict(settings)
+        for k,v in settings.items():
+          setattr(self, k, v)
+        # attributesFromDict(settings)
         
         self.C, self.N, self.P, self.T = self.dims
         self.basis_dims = (self.C, self.N, self.P)
@@ -103,11 +105,11 @@ class Spikenet(object):
         
         # self.path = set_paths() # (URS) was hardcoded to ~/sn/py/spikes, change it?
         
-        self.rank, self.procs, self.root = mpi
+        self.rank, self.procs, self.root = self.mpi
         if self.bs % self.procs != 0:
             raise ValueError('Batch size not multiple of number of procs')
             
-        self.learner = learner_class(self.obj, dims, **self.learner_settings)
+        self.learner = self.learner_class(self.obj, self.dims, **self.learner_settings)
         self.lam = self.inference_settings['lam']
         self.prefix = self.writer_settings['prefix']
         
