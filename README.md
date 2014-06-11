@@ -69,6 +69,7 @@ Conda install mpi4py installs not only the python package but also the mpi backe
 Run jobs like
 /Users/urs/anaconda/bin/mpirun -np 4 /Users/urs/anaconda/bin/python parallel_sparsify.py 
 
+There is a bug with Anaconda that it looks for mpi stuff in the folder /Anaconda1Anaonda2Anaconda3, the easiest way to solve this is with a simlink
 
 Notes on qn
 -----------

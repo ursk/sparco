@@ -11,7 +11,7 @@ Several different test cases:
 """
 import mpi4py.rc
 mpi4py.rc.profile('MPE')
-from mpi4py import MPI # Anaconda dies here! 
+from mpi4py import MPI
 	
 import matplotlib
 matplotlib.use('Agg')
