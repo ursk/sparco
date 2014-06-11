@@ -7,10 +7,11 @@ import glob
 import os
 import sys
 
-from mpi4py import MPI
-
 sys.path.append(
 		os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..')))
+sys.path.append(
+		os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..', 'qn')))
+import mpi
 from datadb import DB
 from sparse_coder import SparseCoder
 
@@ -21,12 +22,14 @@ parser.add_argument('-o', '--output-directory',
 		help='path to directory containing output files')
 args = parser.parse_args()
 
-channels = range(64)
-dims = (len(channels), 100, 64, 2*64)
+C = 64  # num channels
+N = 100  # num basis functions
+P = 64  # time steps per basis function
+T = 128  # time size of 
 
 db = DB(**{
-		'dims': dims,
-		'channels': range(64),
+		'dims': (C, N, P, T),
+		'channels': range(C),
 		'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
 		'cache': 50, #T*subsample*cache  determines the batch size
 		'resample': 2,
@@ -40,6 +43,7 @@ db = DB(**{
 		'Fs': 1000
 		})
 
+# lam, maxit, niter, target
 ladder = [[0.1,	 5,	 2000, 5.],
 					[0.3, 10,	 2000, 2.],
 					[0.5, 20,	 2000, 2.],
@@ -52,22 +56,23 @@ configs = []
 
 for lam, maxit, niter, target in ladder:
 	configs.append({
-		  # dims: (num channels, num basis funcs, shift, time steps per basis func)
 			'db': db,
-			'dims': dims,
-			'bs': MPI.COMM_WORLD.Get_size() * 2,
-			'niter': 10000,
+      'C': C,
+      'N': N,
+      'P': P,
+      'T': T,
+			'bs': mpi.procs * 2,
 			'niter': niter,
-			'learner': {
+			'learner_settings': {
 				'eta': 0.0001,
 				'target': target,
 				'thresh': target*2
 				},
-			'inference': {
+			'inference_settings': {
 				'lam': lam,
 				'maxit': maxit
 				},
-			'writer': {
+			'writer_settings': {
 				'output_path': args.output_directory,
 				'prefix': 'gautam',
 				}

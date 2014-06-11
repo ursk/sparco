@@ -19,6 +19,8 @@ from scipy.signal import lfilter
 import h5py
 import os
 
+import mpi
+
 class Learner(object):
     pass
 
@@ -41,7 +43,7 @@ class AngleChasing(Learner):
     """
 
     def __init__(self, obj, dims, eta=.0001, up=1.01, down=.99, target=5.,
-                 c=100, cmax=1, smooth=False, thresh=10, mpi=(0,1,0)):
+                 c=100, cmax=1, smooth=False, thresh=10):
         """
         obj            - returns E, dE/dphi
         dims           - C, N, P, T
@@ -52,12 +54,11 @@ class AngleChasing(Learner):
         thresh         - discard spurious updates to basis
         c              - center basis functions every few steps
         cmax           - max shift in basis function on centering step
-        mpi            - rank, procs, root
         """
         attributesFromDict(locals())
         self.C, self.N, self.P, self.T = dims
-        self.rank, self.procs, self.root = mpi
-        if self.rank != self.root: return
+        if mpi.rank != mpi.root:
+          return
         
         self.debug = True
         self.t = 0
@@ -127,17 +128,17 @@ class AngleChasing(Learner):
 
     def step(self, phi, a, X):
         
-        if self.rank == self.root:
+        if mpi.rank == mpi.root:
             self.update(phi, a, X)
             if self.c is not None and self.t % self.c == 0:
                 self.center(phi)
-        MPI.COMM_WORLD.Bcast(phi, self.root)
+        mpi.bcast(phi, mpi.root)
 
 class GroupMP(AngleChasing):
 
     def __init__(self, obj, dims, eta=.0001, up=1.01, down=.99, target=5.,
-                 c=100, cmax=1, mpi=(0,1,0), extra=None):
-        super(GroupMP, self).__init__(obj, dims, eta, up, down, target, c, cmax, mpi)
+                 c=100, cmax=1, extra=None):
+        super(GroupMP, self).__init__(obj, dims, eta, up, down, target, c, cmax)
         self.extra = extra
         self.gsize = extra['gsize']
         self.orthonormal = extra['orthonormal']
@@ -174,8 +175,8 @@ class GroupMP(AngleChasing):
 class PenalizedMP(AngleChasing):
 
     def __init__(self, obj, dims, eta=.0001, up=1.01, down=.99, target=5.,
-                 c=100, cmax=1, mpi=(0,1,0), extra=None):
-        super(PenalizedMP, self).__init__(obj, dims, eta, up, down, target, c, cmax, mpi)
+                 c=100, cmax=1, extra=None):
+        super(PenalizedMP, self).__init__(obj, dims, eta, up, down, target, c, cmax)
         self.extra = extra
         self.mu = extra['mu']
         self.sigma = extra['sigma']
@@ -285,7 +286,7 @@ class CoordinatewiseDescent(Learner):
     """
 
     def __init__(self, obj, dims, maxiter=10, tol=1e-4, epsilon=1.,
-                 t0=10, rho=15, mpi=(0,1,0)):
+                 t0=10, rho=15):
         """
         obj            - returns E, dE/dphi (not used)
         dims           - C, N, P, T
@@ -295,13 +296,12 @@ class CoordinatewiseDescent(Learner):
         t0             - annealing term
         rho            - annealing term, bigger more gradual start
         memory         - use epoch memory
-        mpi            - rank, procs, root
         """
         attributesFromDict(locals())
         self.C, self.N, self.P, self.T = dims
-        self.rank, self.procs, self.root = mpi
         if t0 < 2: raise ValueError('t0 < 2')
-        if self.rank != self.root: return
+        if mpi.rank != mpi.root:
+          return
 
         bdim = (self.C, self.N, self.P)
 
@@ -462,9 +462,9 @@ class CoordinatewiseDescent(Learner):
         self.t += 1
 
     def step(self, phi, a, X):
-        if self.rank == self.root:
+        if mpi.rank == mpi.root:
             self.update(phi, a, X)
-        MPI.COMM_WORLD.Bcast(phi, self.root)
+        mpi.bcast(phi, mpi.root)
 
              
 
@@ -483,7 +483,7 @@ class ParallelCoordinatewiseDescent(Learner):
     """
 
     def __init__(self, obj, dims, maxiter=10, tol=1e-4, epsilon=1.,
-                 t0=25, rho=15, memory=False, et=100, mpi=(0,1,0), mpe=False):
+                 t0=25, rho=15, memory=False, et=100, mpe=False):
         """
         obj            - returns E, dE/dphi (not used)
         dims           - C, N, P, T
@@ -494,18 +494,16 @@ class ParallelCoordinatewiseDescent(Learner):
         rho            - annealing term, bigger more gradual start
         memory         - use epoch memory
         et             - epoch times
-        mpi            - rank, procs, root
         """
         attributesFromDict(locals())
         self.C, self.N, self.P, self.T = dims
-        self.rank, self.procs, self.root = mpi
-        if self.N % self.procs != 0:
+        if self.N % mpi.procs != 0:
             raise NotImplementedError('Basis functions not multiple of procs')
         if t0 < 2: raise ValueError('t0 < 2')
-        self.Nl = self.N / self.procs
+        self.Nl = self.N / mpi.procs
 
         # initialize A and B
-        if self.rank == self.root:
+        if mpi.rank == mpi.root:
             self.A = np.zeros((self.N, self.P, self.N, self.P))
             for i,j in np.ndindex((self.N, self.P)):
                 self.A[i,j,i,j] = self.epsilon
@@ -514,7 +512,7 @@ class ParallelCoordinatewiseDescent(Learner):
             self.phiT = self.phi.transpose((1,0,2))  # a view of phi
             self.dphi = np.empty_like(self.phi)                                    
             self.B = np.empty_like(self.phi)                            
-            self.Ac = np.empty((self.procs, self.Nl, self.P, self.Nl, self.P))
+            self.Ac = np.empty((mpi.procs, self.Nl, self.P, self.Nl, self.P))
             self.norm = 0.
 
             self.tmpA = np.zeros_like(self.A)
@@ -575,7 +573,7 @@ class ParallelCoordinatewiseDescent(Learner):
         with self.step_begin: pass
 
         with self.init:
-            if self.rank == self.root:
+            if mpi.rank == mpi.root:
                 # initialize phi and possibly B
                 self.phiT[:] = phi0
                 if self.t == 0: self.B[:] = self.epsilon * self.phi
@@ -635,11 +633,11 @@ class ParallelCoordinatewiseDescent(Learner):
 
         # scatter A and dphi
         with self.scatter:
-            MPI.COMM_WORLD.Scatter(self.Ac, self.Al, self.root)
-            MPI.COMM_WORLD.Scatter(self.dphi, self.dphil, self.root)
+            mpi.scatter(self.Ac, self.Al, mpi.root)
+            mpi.scatter(self.dphi, self.dphil, mpi.root)
 
         # initialize local basis
-        self.phil[:] = phi0[:,self.rank*self.Nl:(self.rank+1)*self.Nl].transpose((1,0,2))
+        self.phil[:] = phi0[:,mpi.rank*self.Nl:(mpi.rank+1)*self.Nl].transpose((1,0,2))
 
         for n in range(self.Nl):
             self.scale[n,:] = 1./np.diag(self.Al[n,:,n,:])[np.newaxis,:]
@@ -663,23 +661,23 @@ class ParallelCoordinatewiseDescent(Learner):
             # [TODO] Need to do a line search here
             # gather phi, compute objective and derivatives, stop?
             with self.gather:
-                MPI.COMM_WORLD.Gather(self.phil, self.phi, self.root)
+                mpi.gather(self.phil, self.phi, mpi.root)
 
             with self.comp:
-                if self.rank == self.root:
+                if mpi.rank == mpi.root:
                     obj = self.objective()
                     self.stop[0] = int(abs(obj/oldobj - 1) < self.tol)
                     oldobj = obj
             with self.broadcast:
-                MPI.COMM_WORLD.Bcast(self.stop, self.root)
+                mpi.bcast(self.stop, mpi.root)
             if self.stop[0]: break
 
             # scatter derivatives to nodes
             with self.scatter:
-                MPI.COMM_WORLD.Scatter(self.dphi, self.dphil, self.root)
+                mpi.scatter(self.dphi, self.dphil, mpi.root)
 
         # broadcast all of phi to nodes before returning
-        if self.rank == self.root:
+        if mpi.rank == mpi.root:
             if self.debug:
                 angle = angles(phi0, self.phiT)
                 x = (self.t, obj, obj + self.norm, iter, decay, np.max(angle),
@@ -688,7 +686,7 @@ class ParallelCoordinatewiseDescent(Learner):
                        'dphi max=%f, min=%f, mean=%f, std=%f degrees') % x)
             phi0[:] = self.phiT
         with self.broadcast:
-            MPI.COMM_WORLD.Bcast(phi0, self.root)
+            mpi.bcast(phi0, mpi.root)
         self.t += 1
 
         with self.step_end: pass
@@ -701,7 +699,7 @@ class ProjectedGradientDescent(Learner):
     
     def __init__(self, obj, dims, maxiter=20, tol=1e-8,
                  epsilon=0.001, t0=2, rho=15,
-                 s=1, beta=.5, sigma=1e-4, mpi=(0,1,0)):
+                 s=1, beta=.5, sigma=1e-4):
         """
         obj            - returns E, dE/dphi
         dims           - C, N, P, T
@@ -710,9 +708,9 @@ class ProjectedGradientDescent(Learner):
         """
         attributesFromDict(locals())
         self.C, self.N, self.P, self.T = dims
-        self.rank, self.procs, self.root = mpi
 
-        if self.rank != self.root: return
+        if mpi.rank != mpi.root:
+          return
         
         # set A to small multiple of identity
         self.A = np.zeros((self.N, self.P, self.N, self.P))
@@ -815,8 +813,8 @@ class ProjectedGradientDescent(Learner):
         phi0[:] = phi
         
     def step(self, phi0, a, X):
-        if self.rank == self.root:
+        if mpi.rank == mpi.root:
             self.update(phi0, a, X)
-        MPI.COMM_WORLD.Bcast(phi0, self.root)
+        mpi.bcast(phi0, mpi.root)
 
 
