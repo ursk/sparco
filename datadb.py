@@ -82,14 +82,17 @@ class DB(object):
         self.size = np.zeros(self.numdb, dtype=np.int)
         for i in range(self.numdb):
             #print 'Opening %s for reading.' % self.filenames[i]            
-            db = h5py.File(self.filenames[i], 'r')
-            dset = db['data']
-            size = len(dset)
-            self.db.append(db)
-            self.dset.append(dset)
-            self.size[i] = size
-            print 'Opened %s for reading.' % self.filenames[i]
-            print 'Dataset has dimensions %s ' % (dset.shape,)
+            try:
+              db = h5py.File(self.filenames[i], 'r')
+              dset = db['data']
+              size = len(dset)
+              self.db.append(db)
+              self.dset.append(dset)
+              self.size[i] = size
+              print 'Opened %s for reading.' % self.filenames[i]
+              print 'Dataset has dimensions %s ' % (dset.shape,)
+            except:
+              print "Error opening file {0}".format()
 
         self.weight = self.size / float(self.size.sum())
         
