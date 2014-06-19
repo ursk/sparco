@@ -59,10 +59,10 @@ class AngleChasing(Learner):
         self.C, self.N, self.P, self.T = dims
         if mpi.rank != mpi.root:
           return
-        
+
         self.debug = True
         self.t = 0
-        
+
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!this is learner with thresh", self.thresh
 
     def update(self, phi, a, X):
@@ -74,10 +74,10 @@ class AngleChasing(Learner):
         """
         oldphi = phi.copy()
         obj, dphi = self.obj(phi, a, X)
-        
+
         newphi = phi - self.eta * dphi
         newphi /= vnorm(newphi)
-        
+
         dot = np.sum(newphi[:]*oldphi[:])/ (np.linalg.norm(newphi) * np.linalg.norm(oldphi))
         angle = np.arccos(dot) * 180. / np.pi
         if np.isnan(angle): angle = 0.
@@ -127,7 +127,6 @@ class AngleChasing(Learner):
                 phi[:,n] = lfilter(b, a, phi[:,n], axis=1)
 
     def step(self, phi, a, X):
-        
         if mpi.rank == mpi.root:
             self.update(phi, a, X)
             if self.c is not None and self.t % self.c == 0:

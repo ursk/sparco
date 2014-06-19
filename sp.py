@@ -19,7 +19,7 @@ import mpi
 import sparseqn
 import sptools
 from logger import Logger
-from basis_writer import BasisWriter
+from basis_writer import Writer
 import learner
 
 class Spikenet(object):
@@ -119,7 +119,9 @@ class Spikenet(object):
       log_file = open(config['log_path'] , 'w+', 0)
       sys.stdout = Logger(sys.stdout, log_file, **self.logger_settings)
       sys.stderr = Logger(sys.stderr, log_file, **self.logger_settings)
-    self.basis_writer = BasisWriter(**self.writer_settings)
+    self.writer = Writer(**self.writer_settings)
+    if mpi.rank == mpi.root:
+      self.writer.write_configuration(settings)
 
   def validate_configuration(self):
     """Throw an exception for any invalid config parameter."""
@@ -159,13 +161,14 @@ class Spikenet(object):
       learn_tic += time.time() - tic
 
       if mpi.rank == mpi.root and (self.t % self.disp) == 0:
-        self.dump(A, X, self.t, sparse_tic, learn_tic)
+        self.update_statistics()
+        self.dump(self.A, self.X, self.t, sparse_tic, learn_tic)
         sparse_tic = learn_tic = 0
 
   def select_data(self):
     """Select random data patches on root and scatter to all nodes."""
     if mpi.rank == mpi.root:
-      X = self.db.get_patches(self.bs)
+      self.X = self.db.get_patches(self.bs)
     mpi.scatter(self.X, self.parX, mpi.root)
 
   def infer_coefficients(self):
@@ -180,11 +183,11 @@ class Spikenet(object):
     Dump iteration data to files
     """
     # l0 norm of all coefficients across batches
-    l0norm = (A != 0.).sum().astype(np.float64) / np.prod(A.shape)
+    l0norm = (self.A != 0.).sum().astype(np.float64) / np.prod(self.A.shape)
 
     # normalized reconstruction error
-    E, gd, Xhat = self.obj(self.phi, A, X, recon=True, l1=False)
-    z = self.obj(self.phi, np.zeros_like(A), X)[0]
+    E, gd, Xhat = self.obj(self.phi, self.A, self.X, recon=True, l1=False)
+    z = self.obj(self.phi, np.zeros_like(self.A), self.X)[0]
     error = E / z
     snr = 10 * np.log10( 1 / error )
 
@@ -192,8 +195,34 @@ class Spikenet(object):
     print out % (t, sparse_tic, learn_tic, l0norm, error, snr)
 
     # write basis to file
-    self.basis_writer.write(self.phi, A, t, self.code(t),
-                error=error, X=X, Xhat=Xhat)
+    # TODO clean up this call by passing just the SPikenet
+    self.basis_writer.write(self.phi, A, t,#self.code(t),
+                error=error, X=X, Xhat=Xhat, spikenet=self, t=t)
+
+  def update_statistics(self):
+    coeff = A.transpose(1,0,2).copy()
+    coeff.shape = (coeff.shape[0], coeff.shape[1]*coeff.shape[2])
+    
+    # get norms and variance of coefficients
+    l0norm = (coeff != 0.).sum(axis=1).astype('float64')
+    l0norm /= np.prod(coeff.shape[1:])
+    l0 = np.mean(l0norm)
+
+    l1norm = np.abs(coeff).sum(axis=1)
+    l1norm /= max(l1norm)
+
+    l2norm = norm(phi)
+    l2norm /= max(l2norm)
+
+    # sort based on accumulated variance but display recent batch variance
+    variance = np.var(coeff, axis=1)
+    if self.variance is None:
+        self.variance = variance
+    else:
+        self.variance += variance
+    variance /= max(variance)
+      order = np.argsort(self.variance)[::-1]
+
 
   def obj(self, phi, A, X, l1=False, recon=False):
     """Compute the objective function.

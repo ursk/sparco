@@ -12,12 +12,11 @@ from scipy.misc.pilutil import imsave
 from scipy.signal import correlate
 
 
-class BasisWriter(object):
+class Writer(object):
 
-  def __init__(self, output_path=None, prefix=None, is_movie=False,
+  def __init__(self, spikenet, output_path=None, is_movie=False,
       create_plots=True):
     """
-    prefix  - prefix to output files (and directories)
     output_path  - root path of output
     is_movie   - if input data is natural scenes, modify output
     create_plots   - whether or not to save plots
@@ -28,130 +27,143 @@ class BasisWriter(object):
 
     # create directories if necessary
     try:
-      os.makedirs(os.path.join(self.output_path, self.prefix))
-      if self.create_plots:
-        for dir in ['unsorted', 'sorted', 'line', 'reconstruction', 'basis']:
-          os.makedirs(os.path.join(self.output_path, self.prefix, dir))
+      os.makedirs(self.output_path)
+      # if self.create_plots:
+      #   for dir in ['unsorted', 'sorted', 'line', 'reconstruction', 'basis']:
+      #     os.makedirs(os.path.join(self.output_path, self.prefix, dir))
     except OSError:
       pass
 
-  def code(self, t):
-    """ Generate string for output filenames.
+  # def code(self):
+  #   """ Generate string for output filenames.
+  #
+  #   Args:
+  #     spikenet   - spikenet
+  #   """
+  #   sn = self.spikenet
+  #   code = 'it%06d_%dx%dx%dx%d_lam%.2f_bs%d_proc%d' % (
+  #       sn.t, sn.C, sn.N, sn.P, sn.T,
+  #       sn.inference_settings['lam'], sn.bs, sn.procs)
+  #   return code
 
-    Args:
-      t   - time step
-    """
-    code = ('%s-it=%06d,C=%d,N=%d,P=%d,T=%d,lam=%.2f,bs=%d,proc=%d') % (
-        self.writer_settings['prefix'], t, self.C, self.N, self.P, self.T,
-        self.inference_settings['lam'], self.bs, self.procs)
-    return code
-    def write(self, phi, A, iteration, code, error,
-              cmap=plt.cm.jet, X=None, Xhat=None):
-        """
-        Output basis and plots to file
-         phi       - basis
-         A         - coefficients (batch, basis, time)
-         iteration - integer
-         code      - prefix for output
-         error     - energy / energy with zero A
-         X         - data
-         Xhat      - reconstructed data
-         l2norm    - l2norm of basis
-         
-        Edge bars correspond to:
-               top: l1 norm
-          left: l0 norm       right: basis norm
-               bottom: variance
-        """
-        # reorder indices as (basis number, batch * time)
-        coeff = A.transpose(1,0,2).copy()
-        coeff.shape = (coeff.shape[0], coeff.shape[1]*coeff.shape[2])
-        
-        # get norms and variance of coefficients
-        l0norm = (coeff != 0.).sum(axis=1).astype('float64')
-        l0norm /= np.prod(coeff.shape[1:])
-        l0 = np.mean(l0norm)
+  def write_configuration(self, config):
+    with f as open(os.path.join(self.output_path, 'config.txt')):
+      pp = pprint.PrettyPrinter(indent=2, stream=f)
+      pp.pprint(config)
 
-        l1norm = np.abs(coeff).sum(axis=1)
-        l1norm /= max(l1norm)
 
-        l2norm = norm(phi)
-        l2norm /= max(l2norm)
+  # TODO revise the arglist here
+  # def write(self, phi, A, iteration, code, error,
+  #           cmap=plt.cm.jet, X=None, Xhat=None, spikenet=None, t=None):
+  def write_snapshot(self):
+      """
+      Output basis and plots to file
+       phi       - basis
+       A         - coefficients (batch, basis, time)
+       iteration - integer
+       code      - prefix for output
+       error     - energy / energy with zero A
+       X         - data
+       Xhat      - reconstructed data
+       l2norm    - l2norm of basis
+       
+      Edge bars correspond to:
+             top: l1 norm
+        left: l0 norm       right: basis norm
+             bottom: variance
+      """
+      # reorder indices as (basis number, batch * time)
+      coeff = A.transpose(1,0,2).copy()
+      coeff.shape = (coeff.shape[0], coeff.shape[1]*coeff.shape[2])
+      
+      # get norms and variance of coefficients
+      l0norm = (coeff != 0.).sum(axis=1).astype('float64')
+      l0norm /= np.prod(coeff.shape[1:])
+      l0 = np.mean(l0norm)
 
-        # sort based on accumulated variance but display recent batch variance
-        variance = np.var(coeff, axis=1)
-        if self.variance is None:
-            self.variance = variance
-        else:
-            self.variance += variance
-        variance /= max(variance)
-        order = np.argsort(self.variance)[::-1]
+      l1norm = np.abs(coeff).sum(axis=1)
+      l1norm /= max(l1norm)
 
-        # filenames for output
-        unsorted = os.path.join(self.output_path, self.prefix, 'unsorted',
-                                'basis-%s.png' % code)
-        sorted = os.path.join(self.output_path, self.prefix, 'sorted',
-                              'sorted-basis-%s.png' % code)
-        lineplt = os.path.join(self.output_path, self.prefix, 'line',
-                               'line-basis-%s.png' % code)
-        reconplt = os.path.join(self.output_path, self.prefix, 'reconstruction',
-                               'reconstruction-%s.png' % code)
-        
-        title='%05d l0:%0.3f e:%0.3f' % (iteration, l0, error)
+      l2norm = norm(phi)
+      l2norm /= max(l2norm)
 
-        params = (l0norm, l1norm, variance, l2norm)
-        sparams = (l0norm[order], l1norm[order], variance[order], l2norm[order])
-        if self.plots:
-            if self.is_movie:
-                natmov_basis(phi, title, unsorted, params=params, figno=2)
-                natmov_basis(phi[:,order], title, sorted, params=sparams, figno=3)
-            else:
-                display_basis(phi, title, unsorted, cmap=cmap, params=sparams, figno=2, display=True)
-                display_basis(phi[:,order], title, sorted, cmap=cmap, params=sparams, figno=3, display=True)
-                #line_plot(phi[:,order], lineplt, figno=4)
-                #line_plot(phi, lineplt, figno=4)                                        
+      # sort based on accumulated variance but display recent batch variance
+      variance = np.var(coeff, axis=1)
+      if self.variance is None:
+          self.variance = variance
+      else:
+          self.variance += variance
+      variance /= max(variance)
+      order = np.argsort(self.variance)[::-1]
 
-        # save basis to file (overwrite)
-        basisf = os.path.join(self.output_path, self.prefix, 'basis',
-                              'basis-%s.h5' % code)
-        print "DEBUG: Trying to open file", basisf
-        h5 = h5py.File(basisf, 'w')
-        h5.create_dataset('phi', data=phi)
-        h5.create_dataset('order', data=order)
-        h5.create_dataset('variance', data=variance)
-        h5.create_dataset('l0', data=l0norm)        
-        h5.create_dataset('l1', data=l1norm)
-        h5.create_dataset('l2', data=l2norm)
-        h5.close()
+      # TODO temp hack; make everything use the passed in spikenet
+      # code = self.code(spikenet)
 
-        # create soft-link to basis file
-        linkf = os.path.join(self.output_path, self.prefix, 'basis.h5')
-        try:
-            os.remove(linkf)
-        except:
-            pass
-        os.symlink(basisf, linkf)
+      # filenames for output
+      unsorted = os.path.join(self.output_path, self.prefix, 'unsorted',
+                              'basis-%s.png' % code)
+      sorted = os.path.join(self.output_path, self.prefix, 'sorted',
+                            'sorted-basis-%s.png' % code)
+      lineplt = os.path.join(self.output_path, self.prefix, 'line',
+                             'line-basis-%s.png' % code)
+      reconplt = os.path.join(self.output_path, self.prefix, 'reconstruction',
+                             'reconstruction-%s.png' % code)
+      
+      title='%05d l0:%0.3f e:%0.3f' % (iteration, l0, error)
 
-        # display reconstruction
-        if self.plots and X is not None and Xhat is not None and A is not None:
-            if self.is_movie:
-                natmov_reconstruction(X, Xhat, reconplt, display=True)
-            else:
-                mx = 5
-                plot_reconstruction(A[:mx], X[:mx], Xhat[:mx], reconplt)
+      params = (l0norm, l1norm, variance, l2norm)
+      sparams = (l0norm[order], l1norm[order], variance[order], l2norm[order])
+      if self.plots:
+          if self.is_movie:
+              natmov_basis(phi, title, unsorted, params=params, figno=2)
+              natmov_basis(phi[:,order], title, sorted, params=sparams, figno=3)
+          else:
+              display_basis(phi, title, unsorted, cmap=cmap, params=sparams, figno=2, display=True)
+              display_basis(phi[:,order], title, sorted, cmap=cmap, params=sparams, figno=3, display=True)
+              #line_plot(phi[:,order], lineplt, figno=4)
+              #line_plot(phi, lineplt, figno=4)                                        
+
+      # save basis to file (overwrite)
+      basisf = os.path.join(self.output_path, self.prefix, 'basis',
+                            'basis-%s.h5' % code)
+      print "DEBUG: Trying to open file", basisf
+      h5 = h5py.File(basisf, 'w')
+      h5.create_dataset('phi', data=phi)
+      h5.create_dataset('order', data=order)
+      h5.create_dataset('variance', data=variance)
+      h5.create_dataset('l0', data=l0norm)        
+      h5.create_dataset('l1', data=l1norm)
+      h5.create_dataset('l2', data=l2norm)
+      h5.close()
+
+      # create soft-link to basis file
+      linkf = os.path.join(self.output_path, self.prefix, 'basis.h5')
+      try:
+          os.remove(linkf)
+      except:
+          pass
+      os.symlink(basisf, linkf)
+
+      # display reconstruction
+      if self.plots and X is not None and Xhat is not None and A is not None:
+          if self.is_movie:
+              natmov_reconstruction(X, Xhat, reconplt, display=True)
+          else:
+              mx = 5
+              plot_reconstruction(A[:mx], X[:mx], Xhat[:mx], reconplt)
 
 
 def natmov_reconstruction(X, Xhat, filename=None, display=False,
-                          figno=13, title='Batch reconstruction'):
-    """
-    Generate one plot with data and it's reconstruction
-     X    - original
-     Xhat - reconstruction
-    """
-    natmov_basis(X.transpose((1,0,2)), title=title,
-                 figno=figno, sb=(2,1,1), display=display)
-    natmov_basis(Xhat.transpose((1,0,2)), figno=figno, sb=(2,1,2),
-                 filename=filename, display=display)
+                        figno=13, title='Batch reconstruction'):
+  """
+  Generate one plot with data and it's reconstruction
+   X    - original
+   Xhat - reconstruction
+  """
+  natmov_basis(X.transpose((1,0,2)), title=title,
+               figno=figno, sb=(2,1,1), display=display)
+  natmov_basis(Xhat.transpose((1,0,2)), figno=figno, sb=(2,1,2),
+               filename=filename, display=display)
 
 
 def plot_reconstruction(A, X, Xhat, filename=None, gain=.5, figno=32):

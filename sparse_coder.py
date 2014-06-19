@@ -12,17 +12,20 @@ openmpirun -np 2 python run.py -m white -p white-12x12x8
 
 class SparseCoder:
 
-  def __init__(self, configs):
+  def __init__(self, configs, output_path):
     self.configs = configs
+    self.output_path = output_path
 
   def run(self):
     phi = None
     eta = self.configs[0]['learner_settings']['eta']
     basis_dims = [self.configs[0][k] for k in ('C','N','P')]
-    for config in self.configs:
-      print 'Learning with lam = %g, maxit = %d, niter = %d' % (
-          config['inference_settings']['lam'],
+    for i, config in enumerate(self.configs):
+      iteration_tuple = (config['inference_settings']['lam'],
           config['inference_settings']['maxit'], config['niter'])
+      print 'Learning with lam = %g, maxit = %d, niter = %d' % iteration_tuple
+      config['writer_settings']['output_path'] = os.path.join(
+          self.output_path, "%d_lam_%g_maxit_%d_niter_%d".format(*iteration_tuple))
       if mpi.rank == mpi.root:
         config['phi'] = (phi or self.generate_random_basis(basis_dims))
       else:
