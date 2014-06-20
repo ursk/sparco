@@ -121,6 +121,7 @@ class Spikenet(object):
       sys.stderr = Logger(sys.stderr, log_file, **self.logger_settings)
     self.writer = Writer(**self.writer_settings)
     if mpi.rank == mpi.root:
+      self.writer = Writer(**self.writer_settings)
       self.writer.write_configuration(settings)
 
   def validate_configuration(self):
@@ -135,11 +136,16 @@ class Spikenet(object):
     # allocate MPI buffers
     if mpi.rank == mpi.root:
       self.A = np.empty((self.bs,) + self.coeff_dims)
+      self.E = np.empty(self.bs)
+      self.dphi = np.empty(self.bs + self.phi.shape)
     else:
       self.A = np.array([])
+      self.E = np.empty([])
+      self.dphi = np.empty([])
 
     self.X = np.array([])
     self.parX = np.empty((self.bs / mpi.procs, self.C, self.T)) 
+
 
     sparse_tic = 0
     learn_tic = 0
@@ -150,6 +156,7 @@ class Spikenet(object):
     for self.t in range(self.niter):
 
       self.select_data()
+      mpi.scatter(self.X, self.parX, mpi.root)
 
       tic = time.time()
       self.infer_coefficients()
@@ -157,6 +164,7 @@ class Spikenet(object):
 
       # update basis in parallel
       tic = time.time()
+      self.compute_error_and_dphi()
       self.learner.step(self.phi, self.A, self.X)
       learn_tic += time.time() - tic
 
@@ -169,14 +177,25 @@ class Spikenet(object):
     """Select random data patches on root and scatter to all nodes."""
     if mpi.rank == mpi.root:
       self.X = self.db.get_patches(self.bs)
-    mpi.scatter(self.X, self.parX, mpi.root)
 
   def infer_coefficients(self):
     """Compute the coefficients in parallel."""
-    mpi.scatter(self.X, self.parX, mpi.root)
-    parA = self.inference_function(self.phi, self.parX,
+    self.parA = self.inference_function(self.phi, self.parX,
       **self.inference_settings)
-    mpi.gather(parA, self.A, mpi.root)
+    # mpi.gather(parA, self.A, mpi.root)
+
+  def learn_new_basis(self):
+    self.parE, self.pardphi = self.learner_function(
+        self.phi, self.parA, self.parX, self.T)
+    mpi.gather(self.parE, self.E, mpi.root)
+    mpi.gather(self.pardphi, self.dphi, mpi.root)
+    if mpi.rank == mpi.root
+      mean_dphi = np.mean(self.dphi, axis=0)
+      new_phi = phi - (self.eta * mean_dphi)
+      new_phi /= sptools.vnorm(dphi)
+
+
+
 
   def dump(self, A, X, t, sparse_tic, learn_tic):
     """
@@ -221,7 +240,7 @@ class Spikenet(object):
     else:
         self.variance += variance
     variance /= max(variance)
-      order = np.argsort(self.variance)[::-1]
+    order = np.argsort(self.variance)[::-1]
 
 
   def obj(self, phi, A, X, l1=False, recon=False):
@@ -261,3 +280,5 @@ class Spikenet(object):
       return E, dphi, xhat
     else:
       return E, dphi
+
+  def obj(self, phi):
