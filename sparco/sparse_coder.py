@@ -1,7 +1,10 @@
+import os.path
+
 import numpy as np
 
+# import sparco.mpi as mpi
 import mpi
-from sp import Spikenet
+import sparco
 
 """
 Example calling pattern:
@@ -16,25 +19,27 @@ class SparseCoder:
     self.configs = configs
     self.output_path = output_path
 
-  def run(self):
-    phi = None
-    eta = self.configs[0]['learner_settings']['eta']
-    basis_dims = [self.configs[0][k] for k in ('C','N','P')]
+  def run(self, basis_dims=None, phi=None, eta=.00001):
+    if mpi.rank == mpi.root:
+      phi = phi or self.generate_random_basis(basis_dims)
     for i, config in enumerate(self.configs):
-      iteration_tuple = (config['inference_settings']['lam'],
-          config['inference_settings']['maxit'], config['niter'])
-      print 'Learning with lam = %g, maxit = %d, niter = %d' % iteration_tuple
-      config['writer_settings']['output_path'] = os.path.join(
-          self.output_path, "%d_lam_%g_maxit_%d_niter_%d".format(*iteration_tuple))
-      if mpi.rank == mpi.root:
-        config['phi'] = (phi or self.generate_random_basis(basis_dims))
-      else:
-        config['phi'] = np.empty(basis_dims)
-      config['learner_settings']['eta'] = eta
-      sn = Spikenet(**config)
-      sn.learn()
+      config_tuple = (i, config['num_iterations'],
+        config['inference_settings']['lam'],
+        config['inference_settings']['maxit'])
+      self.log_status(config_tuple)
+      klass = sparco.RootSpikenet if mpi.rank == mpi.root else sparco.Spikenet
+      sn = klass(eta=eta, phi=phi,
+          output_path=self.get_inner_output_path(config_tuple), **config)
+      sn.run()
       phi = sn.phi.copy()
       eta = sn.learner.eta 
+
+  def log_status(self, config_tuple):
+    print 'Round %d: num_iterations = %d, lam = %g, maxit = %d' % config_tuple
+    
+  def get_inner_output_path(self, config_tuple):
+    dir = "%d_niter_%d_lam_%g_maxit_%d".format(*config_tuple)
+    return os.path.join(self.output_path, dir)
 
   def generate_random_basis(self, dims, filter=False, correlated=False):
     """Generate a random basis matrix.

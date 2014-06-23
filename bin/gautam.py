@@ -3,17 +3,21 @@
 from IPython import embed
 
 import argparse
+import time
 import glob
 import os
 import sys
 
 sys.path.append(
     os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..')))
+# TODO fix this-- the issue is that tokyo is not on the load path
 sys.path.append(
-    os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..', 'qn')))
-import mpi
-from datadb import DB
-from sparse_coder import SparseCoder
+    os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..', 'sparco', 'qn')))
+
+import sparco
+import sparco.mpi as mpi
+# from datadb import DB
+# from sparse_coder import SparseCoder
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--input-directory',
@@ -27,7 +31,7 @@ N = 100  # num basis functions
 P = 64  # time steps per basis function
 T = 128  # time size of 
 
-db = DB(**{
+db = sparco.db.DB(**{
     'dims': (C, N, P, T),
     'channels': range(C),
     'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
@@ -44,7 +48,7 @@ db = DB(**{
     })
 
 # lam, maxit, niter, target
-output_path = os.path.join(args.output_path,
+output_path = os.path.join(args.output_directory,
     "trial{0}".format(time.strftime("%y%m%d%H%M%S")))
 ladder = [[0.1,   5,   2000, 5.],
           [0.3, 10,   2000, 2.],
@@ -54,27 +58,19 @@ ladder = [[0.1,   5,   2000, 5.],
           [1.0, 35, 40000, 0.5]]
 configs = []
 
-for lam, maxit, niter, target in ladder:
+for lam, maxit, num_iterations, target_angle in ladder:
   configs.append({
       'db': db,
-      'C': C,
-      'N': N,
-      'P': P,
       'T': T,
-      'bs': mpi.procs * 2,
-      'niter': niter,
-      'learner_settings': {
-        'eta': 0.0001,
-        'target': target,
-        'thresh': target*2
-        },
+      'batch_size': mpi.procs * 2,
+      'num_iterations': num_iterations,
+      'target_angle': target_angle,
+      'max_angle': target_angle * 2,
       'inference_settings': {
         'lam': lam,
         'maxit': maxit
         },
-      'writer_settings': {
-        'prefix': 'gautam',
-        }
       })
-sparse_coder = SparseCoder(configs, output_path)
-sparse_coder.run()
+initial_eta = .00001
+sparse_coder = sparco.sparse_coder.SparseCoder(configs, output_path)
+sparse_coder.run(basis_dims=(C,N,P), eta=initial_eta)

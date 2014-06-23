@@ -1,4 +1,4 @@
-import mpi
+import sparco.mpi as mpi
 
 class Logger(object):
     """

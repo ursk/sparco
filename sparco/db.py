@@ -12,7 +12,7 @@ import h5py
 # from scipy.signal import correlate, lfilter
 from scipy.ndimage.filters import gaussian_filter1d
 from sptools import (attributesFromDict, weighted_randint)
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 # import matplotlib.mlab as mlab
 from time import time as now
 
@@ -134,32 +134,32 @@ class DB(object):
         self.data = data.T
 
         # smooth data across lamina
-        if self.smooth:
-            plt.figure(42)
-            plt.subplot(2,1,1)
-            plt.imshow(self.data[:,:250], origin='lower')
-            plt.title('original')
-            smoothed = gaussian_filter1d(self.data, self.smooth,
-                                         axis=0, order=0, mode='reflect')
-            plt.subplot(2,1,2)
-            plt.imshow(smoothed[:,:250], origin='lower')
-            plt.title('smoothed')
-            plt.draw()
-            self.data = smoothed
-
-        if self.normalize == 'learn':
-            L = self.data.shape[1]
-            self.mean = (self.samples * self.mean +
-                         L * np.mean(self.data, axis=1)) / (self.samples + L)
-            self.var = (self.samples * self.var +
-                         L * np.var(self.data, axis=1)) / (self.samples + L)
-            self.std = np.sqrt(self.var - self.mean**2)
-            self.samples += L
-
-        if self.normalize == 'patch':
-            # normalize data
-            self.data -= self.mean[:,None]
-            self.data /= self.std[:,None]
+        # if self.smooth:
+        #     plt.figure(42)
+        #     plt.subplot(2,1,1)
+        #     plt.imshow(self.data[:,:250], origin='lower')
+        #     plt.title('original')
+        #     smoothed = gaussian_filter1d(self.data, self.smooth,
+        #                                  axis=0, order=0, mode='reflect')
+        #     plt.subplot(2,1,2)
+        #     plt.imshow(smoothed[:,:250], origin='lower')
+        #     plt.title('smoothed')
+        #     plt.draw()
+        #     self.data = smoothed
+        #
+        # if self.normalize == 'learn':
+        #     L = self.data.shape[1]
+        #     self.mean = (self.samples * self.mean +
+        #                  L * np.mean(self.data, axis=1)) / (self.samples + L)
+        #     self.var = (self.samples * self.var +
+        #                  L * np.var(self.data, axis=1)) / (self.samples + L)
+        #     self.std = np.sqrt(self.var - self.mean**2)
+        #     self.samples += L
+        #
+        # if self.normalize == 'patch':
+        #     # normalize data
+        #     self.data -= self.mean[:,None]
+        #     self.data /= self.std[:,None]
 
             # and normalize again
             # m = np.mean(self.data, axis=1)
