@@ -72,56 +72,31 @@ class Writer(object):
         left: l0 norm       right: basis norm
              bottom: variance
       """
-      # reorder indices as (basis number, batch * time)
-      coeff = A.transpose(1,0,2).copy()
-      coeff.shape = (coeff.shape[0], coeff.shape[1]*coeff.shape[2])
-      
-      # get norms and variance of coefficients
-      l0norm = (coeff != 0.).sum(axis=1).astype('float64')
-      l0norm /= np.prod(coeff.shape[1:])
-      l0 = np.mean(l0norm)
-
-      l1norm = np.abs(coeff).sum(axis=1)
-      l1norm /= max(l1norm)
-
-      l2norm = norm(phi)
-      l2norm /= max(l2norm)
-
-      # sort based on accumulated variance but display recent batch variance
-      variance = np.var(coeff, axis=1)
-      if self.variance is None:
-          self.variance = variance
-      else:
-          self.variance += variance
-      variance /= max(variance)
-      order = np.argsort(self.variance)[::-1]
-
       # TODO temp hack; make everything use the passed in spikenet
       # code = self.code(spikenet)
 
       # filenames for output
-      unsorted = os.path.join(self.output_path, self.prefix, 'unsorted',
-                              'basis-%s.png' % code)
-      sorted = os.path.join(self.output_path, self.prefix, 'sorted',
-                            'sorted-basis-%s.png' % code)
-      lineplt = os.path.join(self.output_path, self.prefix, 'line',
-                             'line-basis-%s.png' % code)
-      reconplt = os.path.join(self.output_path, self.prefix, 'reconstruction',
-                             'reconstruction-%s.png' % code)
+      # unsorted = os.path.join(self.output_path, self.prefix, 'unsorted',
+      #                         'basis-%s.png' % code)
+      # sorted = os.path.join(self.output_path, self.prefix, 'sorted',
+      #                       'sorted-basis-%s.png' % code)
+      # lineplt = os.path.join(self.output_path, self.prefix, 'line',
+      #                        'line-basis-%s.png' % code)
+      # reconplt = os.path.join(self.output_path, self.prefix, 'reconstruction',
+      #                        'reconstruction-%s.png' % code)
       
       title='%05d l0:%0.3f e:%0.3f' % (iteration, l0, error)
+      display_basi
+
+      coefficient_statistics = self.compute_coefficient_statistics(self.rootA)
+      sort_order = np.argsort(self.accumulated_basis_variance)[::-1]
+      sorted_params = [ x[sort_order] for x in coefficient_statistics ]
 
       params = (l0norm, l1norm, variance, l2norm)
       sparams = (l0norm[order], l1norm[order], variance[order], l2norm[order])
       if self.plots:
-          if self.is_movie:
-              natmov_basis(phi, title, unsorted, params=params, figno=2)
-              natmov_basis(phi[:,order], title, sorted, params=sparams, figno=3)
-          else:
-              display_basis(phi, title, unsorted, cmap=cmap, params=sparams, figno=2, display=True)
-              display_basis(phi[:,order], title, sorted, cmap=cmap, params=sparams, figno=3, display=True)
-              #line_plot(phi[:,order], lineplt, figno=4)
-              #line_plot(phi, lineplt, figno=4)                                        
+        display_basis(phi, title, unsorted, cmap=cmap, params=sparams, figno=2, display=True)
+        display_basis(phi[:,order], title, sorted, cmap=cmap, params=sparams, figno=3, display=True)
 
       # save basis to file (overwrite)
       basisf = os.path.join(self.output_path, self.prefix, 'basis',
@@ -153,27 +128,7 @@ class Writer(object):
               plot_reconstruction(A[:mx], X[:mx], Xhat[:mx], reconplt)
 
 
-def natmov_reconstruction(X, Xhat, filename=None, display=False,
-                        figno=13, title='Batch reconstruction'):
-  """
-  Generate one plot with data and it's reconstruction
-   X    - original
-   Xhat - reconstruction
-  """
-  natmov_basis(X.transpose((1,0,2)), title=title,
-               figno=figno, sb=(2,1,1), display=display)
-  natmov_basis(Xhat.transpose((1,0,2)), figno=figno, sb=(2,1,2),
-               filename=filename, display=display)
-
-
-def plot_reconstruction(A, X, Xhat, filename=None, gain=.5, figno=32):
-    """
-    Plot original and recovered signal with coefficients as matrices
-    """
-    plt.figure(figno, figsize=(10,6))
-    plt.clf()
-    plt.ioff()
-    imrange = gain * np.max(np.abs(X))
+def plot_reconstruction(
 
     npat = len(A)
     for i in range(npat):
@@ -319,7 +274,6 @@ def display_basis(phi, title=None, filename=None, cmap=plt.cm.jet, params=None,
             if l2norm is not None:
                 I[sy:sy+max(1,np.round(l2norm[i]*n)), sx+o] = .6            
 
-
     # plot the basis
     if display:
         fig = plt.figure(figno)
@@ -391,148 +345,3 @@ def line_plot(phi, filename=None, figno=4, gain=1., display=False,
     # save figure    
     if filename:
         plt.savefig(filename, dpi=dpi)
-
-
-def natmov_basis(phi, title=None, filename=None, cmap=plt.cm.gray,
-                 params=None, figno=2, sb=(1,1,1), display=False):
-    """
-    Display natural movie basis
-    """
-    if params:
-        l0norm, l1norm, variance, l2norm = params
-
-    # reoder phi as (basis number, time, channel)
-    phi = phi.transpose(1,2,0).copy()
-    phi.shape = phi.shape[0:2]+2*(np.int(np.sqrt(phi.shape[2])),)
-    n, t, d, d = phi.shape
-
-    # create a matrix of basis vectors interleaved with black buffer lines
-    buf = 3
-    ncols = int(np.ceil(np.sqrt(n*t)/t))
-    nrows = np.ceil(n/float(ncols))
-
-    I = np.zeros((d*nrows + (nrows+1)*buf - 2, (t*d)*ncols + (ncols+1)*buf - 3))
-    for i in range(n):
-        patch = phi[i,::-1]
-        sx = (d*t + buf) * (i % ncols) + buf - 1
-        sy = (d + buf) * (i / ncols) + buf - 1
-        prange = np.abs(patch).max()
-        # rescale patch to [0, 1]
-        if prange > .00001: patch = .5 + .5*patch/prange
-        else: patch += .5
-        for j in range(t):
-            I[sy:sy+d, sx+d*j:sx+d*(j+1)] = patch[j]
-        # add borders
-        if params:
-            I[sy-1, sx:sx + max(1,np.round(l1norm[i]*d*t))] = .6
-            I[sy:sy + max(1,np.round(l0norm[i]*d)), sx-1] = .6
-            I[sy+d, sx:sx + max(1,np.round(variance[i]*d*t))] = .6
-            if l2norm is not None:
-                I[sy:sy+max(1,np.round(l2norm[i]*d)), sx+d*t] = 0.6           
-
-
-    # plot the basis
-    if display:
-        fig = plt.figure(figno)
-        plt.clf()
-        ax = plt.subplot(*sb)
-        plt.imshow(I, cmap=plt.cm.gray, interpolation='nearest', aspect='equal', origin='upper')
-        plt.axis('off')
-        if title: plt.title(title)
-        plt.subplots_adjust(left=0.02, bottom=0.02, right=0.98, top=0.95,
-                            wspace=0.02, hspace=0.02)
-        plt.draw()
-        
-        # save figure    
-        if filename:
-            dpi = max(150, np.int(2*I.shape[0]/fig.get_figheight()))
-            plt.savefig(filename, dpi=dpi)
-    elif filename:
-        plt.imsave(filename, I, cmap=plt.cm.gray)
-
-
-def sparse_movie(phi, X0, X, A0, A, name, movdir, fps=5, interval=1):
-    """
-    Make movie of sparsification
-
-    Input:
-     phi    - kernel (c, n, p)
-     X0     - original signal
-     X      - X0 + noise
-     A0     - original causes
-     A      - steps of causes
-     name   - PNG output name
-     movdir - where to dump PNGs
-     interval - how many steps to skip
-    """
-    plt.figure(figsize=(8,8))
-    plt.clf()
-    plt.ioff()
-    rows = 5
-    cols = 2
-
-    for i in range(0,len(A),interval):
-        sp = 1        
-        plt.clf()
-        Xhat = np.array([correlate(phi[j], A[i], mode='valid').squeeze()
-                         for j in range(len(phi))])
-        xrng = np.max(np.abs(X))
-        arng = np.max(np.abs(A0))
-
-        plt.subplot(rows,cols,sp)
-        plt.imshow(X0, vmin=-xrng, vmax=xrng, origin='upper')
-        plt.title('Original')
-        sp +=1
-        plt.subplot(rows,cols,sp)
-        plt.imshow(Xhat, vmin=-xrng, vmax=xrng, origin='upper')
-        plt.title('Estimated')
-        sp += 1
-        plt.subplot(rows,cols,sp)
-        plt.imshow(X, vmin=-xrng, vmax=xrng, origin='upper')
-        plt.title('Noisy')
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.imshow(X0-Xhat, vmin=-xrng, vmax=xrng, origin='upper')
-        plt.title('Reconstruction')
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.imshow(A0, vmin=-arng, vmax=arng, aspect=4, origin='upper')
-        plt.title('True Coeff')
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.imshow(A[i], vmin=-arng, vmax=arng, aspect=4, origin='upper')
-        plt.title('Estimated Coeff')
-
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.plot(A0.reshape(-1))
-        plt.ylim([-arng, arng])
-        plt.xlim([0, A0.size])
-        plt.title('True Coeff')
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.plot(A[i].reshape(-1))
-        plt.ylim([-arng, arng])
-        plt.xlim([0, A[i].size])
-        plt.title('Estimated Coeff')
-
-        sp += 1        
-        plt.subplot(rows,cols,sp)
-        plt.scatter(A0.reshape(-1), A[i].reshape(-1))
-        plt.title('True vs Estimated Coeff')
-        
-        #plt.subplots_adjust(hspace=0.60)
-        plt.draw()        
-        plt.savefig(os.path.join(movdir, '%04d_%s.png' % (i, name)))
-
-    plt.ion()
-    import subprocess
-    command = ('mencoder',
-               'mf://%s/*.png' % movdir,
-               #'-vf', 'scale=800:-10',
-               '-mf', 'fps=%d' % fps,
-               '-ovc', 'lavc',
-               '-lavcopts', 'vcodec=mpeg4',
-               '-o', os.path.join(movdir, '%s.avi' % name))
-    print 'Executing: %s ' % (' '.join(command))
-    subprocess.check_call(command)

@@ -104,6 +104,7 @@ class Spikenet(object):
 
     # set dimensions
     self.dims = (self.C, self.N, self.P, self.T)
+    self.patch_dims = (self.C, self.T)
     self.basis_dims = (self.C, self.N, self.P)
     self.coeff_dims = (self.N, self.T + self.P - 1)
 
@@ -111,6 +112,8 @@ class Spikenet(object):
     self.learner = self.learner_class(self.obj, self.dims,
         **self.learner_settings)
     self.phi /= sptools.vnorm(self.phi)
+
+    self.accumulated_basis_variance = np.zeros(self.N)
 
     self.validate_configuration()
 
@@ -133,92 +136,65 @@ class Spikenet(object):
 
   def learn(self):
     """ Learn basis by alternative online minimization."""
-    # allocate MPI buffers
-    if mpi.rank == mpi.root:
-      self.A = np.empty((self.bs,) + self.coeff_dims)
-      self.E = np.empty(self.bs)
-      self.dphi = np.empty(self.bs + self.phi.shape)
-    else:
-      self.A = np.array([])
-      self.E = np.empty([])
-      self.dphi = np.empty([])
-
-    self.X = np.array([])
-    self.parX = np.empty((self.bs / mpi.procs, self.C, self.T)) 
-
-
-    sparse_tic = 0
-    learn_tic = 0
-
-    # broadcast basis to nodes
     mpi.bcast(self.phi, mpi.root)
-
+    # self.allocate_buffers()
     for self.t in range(self.niter):
+      self.iteration()
+      # self.load_data()
+      # self.infer_coefficients()
+      # self.update_basis()
+      # if self.t % self.write_interval == 0:
+      #   self.update_statistics()
 
-      self.select_data()
-      mpi.scatter(self.X, self.parX, mpi.root)
+  def iteration(self):
+    self.x = mpi.scatter(self.rootx)
+    self.infer_coefficients()
+    self.update_basis()
 
-      tic = time.time()
-      self.infer_coefficients()
-      sparse_tic += time.time() - tic
+  # def allocate_buffers(self):
+  #   self.X = np.empty((self.bs / mpi.procs,) + self.patch_dims) 
+  #   self.A = coeff_dims
+    # if mpi.rank == mpi.root:
+    #   self.rootX = None  # filled in select_data()
+    #   self.rootA = np.empty((self.bs,) + self.coeff_dims)
+    #   self.rootE = np.empty(self.bs)
+    #   self.rootdphi = np.empty(self.bs + self.phi.shape)
 
-      # update basis in parallel
-      tic = time.time()
-      self.compute_error_and_dphi()
-      self.learner.step(self.phi, self.A, self.X)
-      learn_tic += time.time() - tic
+  # @time_track
+  # def load_data(self):
+  #   """Select random data patches on root and scatter to all nodes."""
+    # if mpi.rank == mpi.root:
+    #   self.rootX = self.db.get_patches(self.bs)
+    # mpi.scatter(self.rootX, self.X, mpi.root)
 
-      if mpi.rank == mpi.root and (self.t % self.disp) == 0:
-        self.update_statistics()
-        self.dump(self.A, self.X, self.t, sparse_tic, learn_tic)
-        sparse_tic = learn_tic = 0
-
-  def select_data(self):
-    """Select random data patches on root and scatter to all nodes."""
-    if mpi.rank == mpi.root:
-      self.X = self.db.get_patches(self.bs)
-
+  # @time_track
   def infer_coefficients(self):
-    """Compute the coefficients in parallel."""
-    self.parA = self.inference_function(self.phi, self.parX,
+    """Compute the coefficients."""
+    self.a = self.inference_function(self.phi, self.x,
       **self.inference_settings)
     # mpi.gather(parA, self.A, mpi.root)
 
-  def learn_new_basis(self):
-    self.parE, self.pardphi = self.learner_function(
-        self.phi, self.parA, self.parX, self.T)
-    mpi.gather(self.parE, self.E, mpi.root)
-    mpi.gather(self.pardphi, self.dphi, mpi.root)
-    if mpi.rank == mpi.root
-      mean_dphi = np.mean(self.dphi, axis=0)
-      new_phi = phi - (self.eta * mean_dphi)
-      new_phi /= sptools.vnorm(dphi)
+### Learning
+# methods here draw on methods provided by a learner mixin
 
+  # more parallel, higher bandwidth requirement
+  def update_basis1(self):
+    self.xhat = self.obj.compute_xhat(self.phi, self.a)
+    self.dx = self.obj.compute_dx(self.phi, xhat=self.xhat)
+    self.E = self.obj.compute_E(self.dx)
+    self.dphi = self.obj.compute_dphi(self.dx, self.a)
+    self.rootE = mpi.gather(self.E)
+    self.rootdphi = mpi.gather(self.dphi)
 
+  # less parallel, lower bandwidth requirement
+  def update_basis2(self):
+    mpi.gather(self.A, self.rootA, mpi.root)
 
+### Descriptive Statistics
 
-  def dump(self, A, X, t, sparse_tic, learn_tic):
+  def compute_coefficient_statistics(self, A):
+    """Compute l0, l1, l2 norms and variance for each basis functions coeffs.
     """
-    Dump iteration data to files
-    """
-    # l0 norm of all coefficients across batches
-    l0norm = (self.A != 0.).sum().astype(np.float64) / np.prod(self.A.shape)
-
-    # normalized reconstruction error
-    E, gd, Xhat = self.obj(self.phi, self.A, self.X, recon=True, l1=False)
-    z = self.obj(self.phi, np.zeros_like(self.A), self.X)[0]
-    error = E / z
-    snr = 10 * np.log10( 1 / error )
-
-    out = '[%d] Inference: %.4fs, Learning: %.4fs, L0: %.8f, E: %f, SNR: %f'
-    print out % (t, sparse_tic, learn_tic, l0norm, error, snr)
-
-    # write basis to file
-    # TODO clean up this call by passing just the SPikenet
-    self.basis_writer.write(self.phi, A, t,#self.code(t),
-                error=error, X=X, Xhat=Xhat, spikenet=self, t=t)
-
-  def update_statistics(self):
     coeff = A.transpose(1,0,2).copy()
     coeff.shape = (coeff.shape[0], coeff.shape[1]*coeff.shape[2])
     
@@ -235,50 +211,81 @@ class Spikenet(object):
 
     # sort based on accumulated variance but display recent batch variance
     variance = np.var(coeff, axis=1)
-    if self.variance is None:
-        self.variance = variance
-    else:
-        self.variance += variance
+    self.accumulated_basis_variance += variance
+
     variance /= max(variance)
     order = np.argsort(self.variance)[::-1]
 
+### Output
 
-  def obj(self, phi, A, X, l1=False, recon=False):
-    """Compute the objective function.
-
-    Args:
-      phi  - basis
-      A    - coefficients  (batch, basis, time)
-      X    - data (batch, channel, time)
-      l1   - add L1 of A to objective if True
-      recon  - return objective, derivative, reconstructed batches
+  def dump(self, A, X, t, sparse_tic, learn_tic):
     """
-    dphi = np.zeros_like(phi)
-    E = 0.
-    xhat = np.zeros_like(X)
-    for pat in range(self.bs):
-      for b in range(self.P):
-        print "pat: {0}".format(pat)
-        print "b: {0}".format(b)
-        print "Phi shape: {0}".format(phi.shape)
-        print "A shape: {0}".format(A.shape)
-        xhat[pat] += np.dot(phi[:,:,b], A[pat,:,b:b+self.T])
+    Dump iteration data to files
+    """
+    # l0 norm of all coefficients across batches
+    # l0norm = (self.A != 0.).sum().astype(np.float64) / np.prod(self.A.shape)
 
-      dx = xhat[pat] - X[pat]
-      E += 0.5 * np.linalg.norm(dx)**2
+    # normalized reconstruction error
+    E, gd, Xhat = self.obj(self.phi, self.A, self.X, recon=True, l1=False)
+    z = self.obj(self.phi, np.zeros_like(self.A), self.X)[0]
+    error = E / z
+    snr = 10 * np.log10( 1 / error )
 
-      for b in range(self.P):
-        dphi[:,:,b] += np.dot(dx, A[pat,:,b:b+self.T].T)
+    out = '[%d] Inference: %.4fs, Learning: %.4fs, L0: %.8f, E: %f, SNR: %f'
+    print out % (t, sparse_tic, learn_tic, l0norm, error, snr)
 
-    E /= self.bs
-    dphi /= self.bs
+    # write basis to file
+    # TODO clean up this call by passing just the SPikenet
+    self.basis_writer.write(self.phi, A, t,#self.code(t),
+                error=error, X=X, Xhat=Xhat, spikenet=self, t=t)
 
-    if l1:
-      E += self.inference_settings['lam'] * abs(A).sum() / self.bs
+### Profiling
 
-    if recon:
-      return E, dphi, xhat
-    else:
-      return E, dphi
+  PROFILING_TABLE = {}
+  def time_track(orig):
+    PROFILING_TABLE[orig.__name__] = []
+    def tracked_function(*args, **kwargs):
+      start = time.now()
+      res = orig(*args, **kwargs)
+      end = time.now()
+      PROFILING_TABLE[orig.__name__].append(start - end)
+      return res
+    return tracked_function if mpi.rank == mpi.root else orig
 
-  def obj(self, phi):
+  # def obj(self, phi, A, X, l1=False, recon=False):
+  #   """Compute the objective function.
+  #
+  #   Args:
+  #     phi  - basis
+  #     A    - coefficients  (batch, basis, time)
+  #     X    - data (batch, channel, time)
+  #     l1   - add L1 of A to objective if True
+  #     recon  - return objective, derivative, reconstructed batches
+  #   """
+  #   dphi = np.zeros_like(phi)
+  #   E = 0.
+  #   xhat = np.zeros_like(X)
+  #   for pat in range(self.bs):
+  #     for b in range(self.P):
+  #       print "pat: {0}".format(pat)
+  #       print "b: {0}".format(b)
+  #       print "Phi shape: {0}".format(phi.shape)
+  #       print "A shape: {0}".format(A.shape)
+  #       xhat[pat] += np.dot(phi[:,:,b], A[pat,:,b:b+self.T])
+  #
+  #     dx = xhat[pat] - X[pat]
+  #     E += 0.5 * np.linalg.norm(dx)**2
+  #
+  #     for b in range(self.P):
+  #       dphi[:,:,b] += np.dot(dx, A[pat,:,b:b+self.T].T)
+  #
+  #   E /= self.bs
+  #   dphi /= self.bs
+  #
+  #   if l1:
+  #     E += self.inference_settings['lam'] * abs(A).sum() / self.bs
+  #
+  #   if recon:
+  #     return E, dphi, xhat
+  #   else:
+  #     return E, dphi
