@@ -1,3 +1,4 @@
+from IPython import embed
 import os.path
 
 import numpy as np
@@ -32,13 +33,13 @@ class SparseCoder:
           output_path=self.get_inner_output_path(config_tuple), **config)
       sn.run()
       phi = sn.phi.copy()
-      eta = sn.learner.eta 
+      eta = sn.eta 
 
   def log_status(self, config_tuple):
     print 'Round %d: num_iterations = %d, lam = %g, maxit = %d' % config_tuple
     
   def get_inner_output_path(self, config_tuple):
-    dir = "%d_niter_%d_lam_%g_maxit_%d".format(*config_tuple)
+    dir = "{0}_niter_{1}_lam_{2}_maxit_{3}".format(*config_tuple)
     return os.path.join(self.output_path, dir)
 
   def generate_random_basis(self, dims, filter=False, correlated=False):

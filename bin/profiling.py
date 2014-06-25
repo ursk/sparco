@@ -3,6 +3,7 @@
 from IPython import embed
 
 import argparse
+import itertools
 import time
 import glob
 import os
@@ -24,6 +25,8 @@ parser.add_argument('-i', '--input-directory',
     help='path to directory containing input files')
 parser.add_argument('-o', '--output-directory',
     help='path to directory containing output files')
+parser.add_argument('-I', '--inner-directory', action='store_true',
+    help='do not create a directory inside the output directory')
 args = parser.parse_args()
 
 C = 64  # num channels
@@ -31,9 +34,10 @@ N = 100  # num basis functions
 P = 64  # time steps per basis function
 T = 128  # time size of 
 
-db = sparco.db.DB(**{
+def make_db(channels):
+  return  sparco.db.DB(**{
     'dims': (C, N, P, T),
-    'channels': range(C),
+    'channels': range(channels),
     'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
     'cache': 50, #T*subsample*cache  determines the batch size
     'resample': 2,
@@ -47,31 +51,44 @@ db = sparco.db.DB(**{
     'Fs': 1000
     })
 
-# lam, maxit, niter, target
-output_path = os.path.join(args.output_directory,
-    "trial{0}".format(time.strftime("%y%m%d%H%M%S")))
-ladder = [[0.1,   5,   2000, 5.],
-          [0.3, 10,   2000, 2.],
-          [0.5, 20,   2000, 2.],
-          [0.7, 25,   4000, 1.0],
-          [0.9, 30, 10000, 0.5],
-          [1.0, 35, 40000, 0.5]]
-configs = []
 
-for lam, maxit, num_iterations, target_angle in ladder:
-  configs.append({
+profile_space = {
+    'channels': [16,32,64],
+    'patch_size': [128,256],
+    'patches_per_node': [1,2,4],
+    # 'nodes': ????,
+    'basis_method': [1,2]
+    # 'basis_method': [2]
+    }
+profile_configs = map(lambda x: dict(zip(profile_space.keys(), x)),
+    itertools.product(*tuple(profile_space.values())))
+
+if args.inner_directory:
+  base_path = os.path.join(args.output_directory,
+      'profiling{0}'.format(time.strftime('%y%m%d%H%M%S')))
+else:
+  base_path = args.output_directory
+
+for pc in profile_configs:
+
+  output_path = os.path.join(base_path,
+      '_'.join(map(lambda p: '{0}_{1}'.format(p[0],p[1]), pc.items())))
+  db = make_db(pc['channels'])
+
+  configs = [{
       'db': db,
-      'T': T,
-      'batch_size': mpi.procs * 2,
-      'num_iterations': num_iterations,
-      'target_angle': target_angle,
-      'max_angle': target_angle * 2,
+      'T': pc['patch_size'],
+      'batch_size': mpi.procs * pc['patches_per_node'],
+      'num_iterations': 2000,
+      'run_time_limit': 30,
+      'target_angle': 5,
+      'max_angle': 10,
       'create_plots': False,
+      'basis_method' : pc['basis_method'],
       'inference_settings': {
-        'lam': lam,
-        'maxit': maxit
+        'lam': 0.1,
+        'maxit': 5
         },
-      })
-initial_eta = .00001
-sparse_coder = sparco.sparse_coder.SparseCoder(configs, output_path)
-sparse_coder.run(basis_dims=(C,N,P), eta=initial_eta)
+      }]
+  sparse_coder = sparco.sparse_coder.SparseCoder(configs, output_path)
+  sparse_coder.run(basis_dims=(pc['channels'],N,P), eta=.00001)

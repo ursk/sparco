@@ -5,15 +5,15 @@ class AngleChasingLearner(object):
   """
 
   def update_phi(self):
-    if self.phi_angle < self.max_tolerable_angle:
-      do_center = self.centering_interval and self.t % self.centering_interval == 0
+    if self.phi_angle < self.max_angle:
+      do_center = self.basis_centering_interval and self.t % self.basis_centering_interval == 0
       self.phi = center(self.proposed_phi) if do_center else self.proposed_phi
-      self.phi = smooth(self.phi) if smooth else self.phi
+      # self.phi = smooth(self.phi) if smooth else self.phi
     else:
       print 'Update to phi too large. Rejecting.'
 
   def update_eta(self):
-    if angle < self.target:
+    if self.phi_angle < self.target_angle:
       self.eta *= self.eta_up_factor
     else:
       self.eta *= self.eta_down_factor

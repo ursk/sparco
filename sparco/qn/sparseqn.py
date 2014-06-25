@@ -29,7 +29,8 @@ class Objective(object):
         for b in range(self.P):
             self.xhat += np.dot(self.phi[:,:,b], a[:,b:b+self.T])
 
-        self.dx[:] = self.xhat - self.X[self.indx]
+        # self.dx[:] = self.xhat - self.X[self.indx]
+        self.dx[:] = self.xhat - self.X
         fx = 0.5 * (self.dx**2).sum()
 
         for b in range(self.P):
@@ -59,7 +60,7 @@ def sparseqn_batch(phi, X, lam=1., maxit=25,
     """
     C, N, P = phi.shape
     npats = X.shape[0]
-    T = X.shape[2]
+    T = X.shape[-1]
     alen = T + P - 1
 
     # instantiate objective class
@@ -69,7 +70,8 @@ def sparseqn_batch(phi, X, lam=1., maxit=25,
     if Sin is not None:
         A = Sin.copy()
     else:
-        A = np.zeros((npats, N, alen))
+        # A = np.zeros((npats, N, alen))
+        A = np.zeros((N, alen))
 
     lam = lam * np.ones(N*alen)
 
@@ -80,9 +82,10 @@ def sparseqn_batch(phi, X, lam=1., maxit=25,
                    debug=debug, maxit=maxit, delta=delta,
                    past=past, pos=positive)
 
-    for i in range(npats):
-        q.clear()
-        A[i] = q.run(A[i].flatten()).reshape(A[i].shape)
-        obj.indx += 1
+    # for i in range(npats):
+    #     q.clear()
+    #     A[i] = q.run(A[i].flatten()).reshape(A[i].shape)
+    #     obj.indx += 1
 
+    A = q.run(A.flatten()).reshape(N, alen)
     return A

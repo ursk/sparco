@@ -1,7 +1,10 @@
 """
 some random tools, slow code.
 """
+from IPython import embed
+
 import os
+import time
 import types
 
 import matplotlib.pyplot as plt
@@ -11,6 +14,10 @@ import scipy.signal as signal
 import sparco.mpi as mpi
 
 DEBUG = True
+
+class data:
+  def __init__(self, **kwargs):
+    self.__dict__.update(kwargs)
 
 def mixin(instance, mixin_class):
   """Dynamic mixin of methods into instance - works only for new style classes"""
@@ -86,27 +93,34 @@ def blur(phi, window=.2):
 # computing objective function
 # TODO give more generic names, move
 
+def obj(x, a, phi):
+  xhat = compute_xhat(phi, a)
+  dx = compute_dx(x, xhat=xhat)
+  E = compute_E(dx)
+  dphi = compute_dphi(dx, a)
+  return xhat, dx, E, dphi
+
 def compute_dx(x, a=None, phi=None, xhat=None):
-  return x - (xhat if xhat else compute_xhat(phi, a))
+  return x - (xhat if xhat != None else compute_xhat(phi, a))
 
 def compute_xhat(phi, a):
-  p = phi.size[2]; t = a.size[1] - (p+1)
+  p = phi.shape[2]; t = a.shape[1] - p + 1
   return reduce(np.add, (np.dot(phi[:,:,i], a[:,i:i+t]) for i in range(p)))
 
 def compute_E(dx):
   return 0.5 * np.linalg.norm(dx)**2
 
 def compute_dphi(dx, a):
-  t = dx.size[1]; p = a.size[2] - (t+1)
-  return reduce(np.dstack, (np.dot(dx, a[i:i+t].T) for i in range(p)))
+  t = dx.shape[1]; p = a.shape[1] - t + 1
+  return np.dstack(tuple(np.dot(dx, a[:,i:i+t].T) for i in range(p)))
 
 def compute_angle(phi1, phi2):
-  dot = np.sum(phi1*phi2) / (np.linalg.norm(newphi) * np.linalg.norm(self.phi))
+  dot = np.sum(phi1*phi2) / (np.linalg.norm(phi1) * np.linalg.norm(phi2))
   angle = np.arccos(dot) * 180 / np.pi
   return 0 if np.isnan(angle) else angle
 
 def compute_proposed_phi(phi, dphi, eta):
-  newphi = phi - elf.eta * dphi
+  newphi = phi - eta * dphi
   return newphi / vnorm(newphi)
 
 # center and smooth basis
@@ -152,25 +166,36 @@ PROFILING_TABLE = {}
 def time_track(orig):
   PROFILING_TABLE[orig.__name__] = []
   def tracked_function(*args, **kwargs):
-    start = time.now()
+    start = time.time()
     res = orig(*args, **kwargs)
-    end = time.now()
-    PROFILING_TABLE[orig.__name__].append(start - end)
+    end = time.time()
+    PROFILING_TABLE[orig.__name__].append(end - start)
     return res
   return tracked_function if mpi.rank == mpi.root else orig
+
+# TODO complete this terminating decorator
+# def terminate_after(seconds):
+#   def inner_decorator(orig):
+#       @functools.wraps(orig)
+#       def wrapper(*args, **kwargs):
+#         return test_func(*args, **kwargs)
+#       return wrapper
+#     return actualDecorator
 
 # plotting
 # TODO clean this up and just use matplotlib's subplot functionality
 
-def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
-  nrows, ncols = compute_grid_dimensions(mat.size[0], nrows, ncols)
-  cell_height, cell_width = mat.size[1], mat.size[2]
+def grid_image(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
+  nrows, ncols = compute_grid_dimensions(mat.shape[1], nrows, ncols)
+  cell_height, cell_width = mat.shape[0], mat.shape[2]
   img_height = cell_height * ncols + grid_line_width * (ncols+1)
   img_width = cell_width * nrows + grid_line_width * (nrows+1)
-  img = np.zeros(img_height, img_width)
+  img = np.zeros((img_height, img_width))
 
   phi, buf, I = mat, grid_line_width, img
-  for i in range(phi.size[0]):
+  m,n,o = phi.shape
+  l0norm, l1norm, variance, l2norm = params
+  for i in range(phi.shape[0]):
     # import ipdb
     # flip along channel axis (deep sites at bottom)
     patch = phi[i,::-1]
@@ -182,8 +207,8 @@ def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
     else: patch += .5
     I[sy:sy+n, sx:sx+o] = patch
     # add borders
-    I[sy-1, sx:sx + max(1,np.round(self.root_a_l1norms[i]*o))] = .6   # top
-    I[sy:sy + max(1,np.round(self.root_a_l0norms[i]*n)), sx-1] = .6   # left
+    I[sy-1, sx:sx + max(1,np.round(l1norm[i]*o))] = .6   # top
+    I[sy:sy + max(1,np.round(l0norm[i]*n)), sx-1] = .6   # left
     I[sy+n, sx:sx + max(1,np.round(variance[i]*o))] = .6   # bottom
     if l2norm is not None:
       I[sy:sy+max(1,np.round(l2norm[i]*n)), sx+o] = .6      
@@ -191,7 +216,7 @@ def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
 
 def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None,
               cmap=plt.cm.jet, figno=1, filename=None, title=None):
-  image = grid_plot(mat, nrows, ncols, grid_line_width, params)
+  image = grid_image(mat, nrows, ncols, grid_line_width, params)
   fig = plt.figure(figno)
   plt.clf()
   plt.imshow(image, cmap=cmap, interpolation='nearest', aspect='equal',

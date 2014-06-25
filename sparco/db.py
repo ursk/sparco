@@ -40,10 +40,12 @@ class DB(object):
         Fs           : sampling rate
         """
         attributesFromDict(locals())
-        self.C, self.N, self.P, self.T = dims
         self.channels = self.channels or np.arange(self.C)
-        if self.C != len(self.channels):
-            raise ValueError()
+        self.C, self.N, self.P, self.T = dims
+        self.C = len(self.channels)
+        self.patch_shape = (len(self.channels), self.T)
+        # if self.C != len(self.channels):
+        #     raise ValueError()
         self.t = 0
 
         self._load_datasets()
@@ -212,6 +214,8 @@ class DB(object):
                         print 'Channel %d: %g > %g std threshold' % s
                         passed_std = False
 
+                
+                # print "MXP: {0}".format(mxp)
                 if (passed_std and mxp < self.artifact and
                     ((mxu > self.cull and mxu < self.maxcull) or
                     tries > self.giveup * npat)):

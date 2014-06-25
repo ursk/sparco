@@ -1,3 +1,5 @@
+from IPython import embed
+
 import os
 import pprint
 
@@ -12,21 +14,18 @@ import h5py
 from scipy.misc.pilutil import imsave
 from scipy.signal import correlate
 
+import sparco.sptools as sptools
 
 class Writer(object):
 
-  def __init__(self, spikenet, output_path=None, is_movie=False,
-      create_plots=True):
-    """
-    output_path  - root path of output
-    create_plots   - whether or not to save plots
-    """
-    for k,v in locals().items():
-      setattr(self, k, v)
-    os.makedirs(self.output_path)
+  # def __init__(self):
+  #   self.profile_table = csv.DictWriter(
+  #       open(os.path.join(self.output_path, 'profiling.csv'), 'w+'),
+  #       sptools.PROFILING_TABLE.keys())
+  #   self.profile_table.writeheader()
 
   def write_configuration(self, config):
-    with open(os.path.join(self.output_path, 'config.txt')) as f:
+    with open(os.path.join(self.output_path, 'config.txt'), 'w+') as f:
       pp = pprint.PrettyPrinter(indent=2, stream=f)
       pp.pprint(config)
 
@@ -35,39 +34,50 @@ class Writer(object):
     self.symlink_basis()
     if self.create_plots:
       self.write_plots()
+    self.write_profile_table()
 
       # save basis to file (overwrite)
 
   # TODO clean up params, title
   def write_plots(self):
-    title='%05d l0:%0.3f e:%0.3f' % (self.t, np.mean(self.root_a_l0_norms), error)
-    params = (self.root_a_l0norms, self.root_a_l1norms,
-        self.root_a_variance, self.root_a_l2norm)
+    # title='%05d l0:%0.3f e:%0.3f' % (self.t, np.mean(self.roota_l0_norm), error)
+    title = 'Iteration {0}'.format(self.t)
+    params = (self.mean_a_l0_norm, self.mean_a_l1_norm,
+        self.mean_a_variance, self.mean_a_l2_norm)
     sorted_params = tuple( x[self.basis_sort_order] for x in params )
-    sorted_phi = self.phi[:self.basis_sort_order]
+    sorted_phi = self.phi[:,self.basis_sort_order]
     sptools.grid_plot(sorted_phi, params=sorted_params,
         filename=os.path.join(self.output_path, '{0}.png'.format(self.t)))
 
   def write_basis(self):
-    path = os.path.join(self.output_path, self.prefix, 'basis',
-                          '{0}.h5'.format(self.t))
-    h5 = h5py.File(path, 'w')
+    self.basis_path = os.path.join(self.output_path, '{0}.h5'.format(self.t))
+    h5 = h5py.File(self.basis_path, 'w')
     h5.create_dataset('phi', data=self.phi)
-    h5.create_dataset('order', data=self.sort_order)
-    h5.create_dataset('variance', data=self.root_a_variance)
-    h5.create_dataset('l0', data=self.root_a_l0norm)        
-    h5.create_dataset('l1', data=self.root_a_l1norm)
-    h5.create_dataset('l2', data=self.root_a_l2norm)
+    h5.create_dataset('order', data=self.basis_sort_order)
+    h5.create_dataset('variance', data=self.rootbufs.mean.a_variance)
+    h5.create_dataset('l0', data=self.rootbufs.mean.a_l0_norm)        
+    h5.create_dataset('l1', data=self.rootbufs.mean.a_l1_norm)
+    h5.create_dataset('l2', data=self.rootbufs.mean.a_l2_norm)
     h5.close()
 
       # create soft-link to basis file
-  def symlink_basis(self, path):
+  def symlink_basis(self):
     linkf = os.path.join(self.output_path, 'basis.h5')
     try:
       os.remove(linkf)
     except:
       pass
-    os.symlink(path, linkf)
+    os.symlink(self.basis_path, linkf)
+
+  # TODO find a better place to keep timetable
+  def write_profile_table(self):
+    row = {}
+    for k,v in sptools.PROFILING_TABLE.items():
+      row[k] = np.mean(v)
+      sptools.PROFILING_TABLE[k] = []
+    self.profile_table.writerow(row)
+
+
 
   # def iter_stmap(self):
   #   """ Generate string for output filenames.
