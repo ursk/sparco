@@ -90,6 +90,21 @@ def blur(phi, window=.2):
         philp[:,i] = signal.sepfir2d(phi[:,i], g, g)
     return philp
 
+def sample_array(ary, length, axis=0):
+  max_start = ary.shape[axis] - length + 1
+  start = np.random.randint(0, max_start)
+  slc = (slice(None),)*ary.ndims
+  slc[axis] = slice(start, start+length)
+  return ary[slc]
+
+def generate_filtered(gen, filt, num):
+  res = []
+  while len(res) < num:
+    x = gen()
+    filt(x) and res.append(x)
+  return res
+
+
 # computing objective function
 # TODO give more generic names, move
 

@@ -56,9 +56,7 @@ profile_space = {
     'channels': [16,32,64],
     'patch_size': [128,256],
     'patches_per_node': [1,2,4],
-    # 'nodes': ????,
     'basis_method': [1,2]
-    # 'basis_method': [2]
     }
 profile_configs = map(lambda x: dict(zip(profile_space.keys(), x)),
     itertools.product(*tuple(profile_space.values())))
