@@ -27,6 +27,8 @@ parser.add_argument('-o', '--output-directory',
     help='path to directory containing output files')
 parser.add_argument('-I', '--inner-directory', action='store_true',
     help='do not create a directory inside the output directory')
+# parser.add_argument('-n', '--num-nodes', type=int,
+#     help='do not create a directory inside the output directory')
 args = parser.parse_args()
 
 C = 64  # num channels

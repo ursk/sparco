@@ -14,7 +14,6 @@ import csv
 import os
 import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import mpi

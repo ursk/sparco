@@ -12,8 +12,6 @@ import h5py
 # from scipy.signal import correlate, lfilter
 from scipy.ndimage.filters import gaussian_filter1d
 from sptools import (attributesFromDict, weighted_randint)
-# from matplotlib import pyplot as plt
-# import matplotlib.mlab as mlab
 from time import time as now
 
 class DB(object):

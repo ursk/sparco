@@ -7,7 +7,7 @@ one file. Generate spike times file from that file.
 """
 import os, sys
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import h5py
 from time import time as now
 import datetime

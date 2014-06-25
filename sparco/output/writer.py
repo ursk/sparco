@@ -4,11 +4,11 @@ import os
 import pprint
 
 # TODO necessary to use AGG?
-import matplotlib
-matplotlib.use('AGG', warn=False)
-import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
-from matplotlib.colors import colorConverter
+# import matplotlib
+# matplotlib.use('AGG', warn=False)
+# import matplotlib.pyplot as plt
+# from matplotlib.collections import LineCollection
+# from matplotlib.colors import colorConverter
 import numpy as np
 import h5py
 from scipy.misc.pilutil import imsave

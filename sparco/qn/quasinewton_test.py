@@ -5,7 +5,6 @@ import quasinewton as qn
 #import lbfgs
 from scipy.optimize import fmin_bfgs
 from scipy.optimize import fmin_l_bfgs_b
-import matplotlib.pyplot as plt
 import h5py
 from time import time as now
 #import ipdb
