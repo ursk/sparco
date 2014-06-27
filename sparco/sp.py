@@ -185,16 +185,20 @@ class Spikenet(object):
   # TODO see if I can get the normalized norms in a single call
   def update_coefficient_statistics(self):
     for i in range(self.patches_per_node):
-      self.nodebufs.a_l0_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=0, axis=1)
+
+      l0_norm = functools.partial(np.linalg.norm, ord=0)
+      self.nodebufs.a_l0_norm[i] = np.apply_along_axis(l0_norm, arr=self.nodebufs.a[i])
       self.nodebufs.a_l0_norm[i] /= self.nodebufs.a[i].shape[1]
 
-      self.nodebufs.a_l1_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=1, axis=1)
+      l1_norm = functools.partial(np.linalg.norm, ord=1)
+      self.nodebufs.a_l1_norm[i] = np.apply_along_axis(l1_norm, arr=self.nodebufs.a[i])
       self.nodebufs.a_l1_norm[i] /= np.max(self.nodebufs.a_l1_norm[i])
 
-      self.nodebufs.a_l2_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=2, axis=1)
+      l2_norm = functools.partial(np.linalg.norm, ord=2)
+      self.nodebufs.a_l2_norm[i] = np.apply_along_axis(l2_norm, arr=self.nodebufs.a[i])
       self.nodebufs.a_l2_norm[i] /= np.max(self.nodebufs.a_l2_norm[i])
 
-      self.nodebufs.a_variance[i] = np.var(self.nodebufs.a[i], axis=1)
+      self.nodebufs.a_variance[i] = np.apply_along_axis(np.var, self.nodebufs.a[i])
       self.nodebufs.a_variance[i] /= np.max(self.nodebufs.a_variance[i])
 
     for stat in ['a_l0_norm', 'a_l1_norm', 'a_l1_norm', 'a_variance']:
