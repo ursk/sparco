@@ -90,9 +90,7 @@ class Spikenet(object):
       setattr(self, k, v)
 
     if mpi.rank == mpi.root:
-      self.phi /= sptools.vnorm(self.phi)
       self.create_root_buffers = getattr(self, "create_root_buffers{0}".format(self.basis_method))
-    mpi.bcast(self.phi)
 
     # TODO temp for profiling
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
@@ -120,8 +118,11 @@ class Spikenet(object):
     self.nodebufs = sptools.data(mean=sptools.data(**nodebufs_mean), **nodebufs)
 
   def create_root_buffers(self, buffer_dimensions):
+    rootbufs, rootbufs_mean = {}, {}
     for name,dims in buffer_dimensions.items():
-      setattr(self.rootbufs, name, None)
+      rootbufs[name], rootbufs_mean['name'] = None, None
+    self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
+
 
   def validate_configuration(self):
     """Throw an exception for any invalid config parameter."""
