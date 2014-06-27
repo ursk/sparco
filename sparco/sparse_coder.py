@@ -24,7 +24,7 @@ class SparseCoder:
   def run(self, basis_dims=None, phi=None, eta=.00001):
     if mpi.rank == mpi.root:
       phi = phi or self.generate_random_basis(basis_dims)
-      phi /= sptools.vnorm(self.phi)
+      phi /= sptools.vnorm(phi)
     else:
       phi = np.empty(basis_dims)
     for i, config in enumerate(self.configs):
