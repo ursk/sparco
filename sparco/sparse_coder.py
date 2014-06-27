@@ -25,6 +25,8 @@ class SparseCoder:
     if mpi.rank == mpi.root:
       phi = phi or self.generate_random_basis(basis_dims)
       phi /= sptools.vnorm(self.phi)
+    else:
+      phi = np.empty(basis_dims)
     for i, config in enumerate(self.configs):
       mpi.bcast(phi)
       config_tuple = (i, config['num_iterations'],
