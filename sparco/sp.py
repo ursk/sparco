@@ -188,18 +188,18 @@ class Spikenet(object):
     for i in range(self.patches_per_node):
 
       l0_norm = functools.partial(np.linalg.norm, ord=0)
-      self.nodebufs.a_l0_norm[i] = np.apply_along_axis(l0_norm, arr=self.nodebufs.a[i])
+      self.nodebufs.a_l0_norm[i] = np.apply_along_axis(l0_norm, 1, self.nodebufs.a[i])
       self.nodebufs.a_l0_norm[i] /= self.nodebufs.a[i].shape[1]
 
       l1_norm = functools.partial(np.linalg.norm, ord=1)
-      self.nodebufs.a_l1_norm[i] = np.apply_along_axis(l1_norm, arr=self.nodebufs.a[i])
+      self.nodebufs.a_l1_norm[i] = np.apply_along_axis(l1_norm, 1, arr=self.nodebufs.a[i])
       self.nodebufs.a_l1_norm[i] /= np.max(self.nodebufs.a_l1_norm[i])
 
       l2_norm = functools.partial(np.linalg.norm, ord=2)
-      self.nodebufs.a_l2_norm[i] = np.apply_along_axis(l2_norm, arr=self.nodebufs.a[i])
+      self.nodebufs.a_l2_norm[i] = np.apply_along_axis(l2_norm, 1, arr=self.nodebufs.a[i])
       self.nodebufs.a_l2_norm[i] /= np.max(self.nodebufs.a_l2_norm[i])
 
-      self.nodebufs.a_variance[i] = np.apply_along_axis(np.var, self.nodebufs.a[i])
+      self.nodebufs.a_variance[i] = np.apply_along_axis(np.var, 1, self.nodebufs.a[i])
       self.nodebufs.a_variance[i] /= np.max(self.nodebufs.a_variance[i])
 
     for stat in ['a_l0_norm', 'a_l1_norm', 'a_l1_norm', 'a_variance']:
