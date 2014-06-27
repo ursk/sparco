@@ -93,7 +93,6 @@ class Spikenet(object):
     if mpi.rank == mpi.root:
       self.create_root_buffers = getattr(self, "create_root_buffers{0}".format(self.basis_method))
 
-    self.phi /= sptools.vnorm(self.phi)
     self.patches_per_node = self.batch_size / mpi.procs
     self.update_coeff_statistics_interval = self.write_interval
     sptools.mixin(self, self.learner_class)
@@ -212,6 +211,7 @@ class RootSpikenet(Spikenet):
   # TODO cleanup logging and profiling; move writer initialization to writer class
   def __init__(self, **kwargs):
     super(RootSpikenet, self).__init__(**kwargs)
+    self.phi /= sptools.vnorm(self.phi)
     sptools.mixin(self, self.writer_class)
     os.makedirs(self.output_path)
     self.write_configuration(kwargs)
