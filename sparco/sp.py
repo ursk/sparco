@@ -11,6 +11,7 @@ Note:
 """
 from IPython import embed
 import csv
+import functools
 import os
 import time
 
