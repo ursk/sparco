@@ -23,7 +23,9 @@ class SparseCoder:
   def run(self, basis_dims=None, phi=None, eta=.00001):
     if mpi.rank == mpi.root:
       phi = phi or self.generate_random_basis(basis_dims)
+      phi /= sptools.vnorm(self.phi)
     for i, config in enumerate(self.configs):
+      mpi.bcast(self.phi)
       config_tuple = (i, config['num_iterations'],
         config['inference_settings']['lam'],
         config['inference_settings']['maxit'])
