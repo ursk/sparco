@@ -6,6 +6,7 @@ import numpy as np
 # import sparco.mpi as mpi
 import mpi
 import sparco
+import sptools
 
 """
 Example calling pattern:
