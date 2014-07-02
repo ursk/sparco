@@ -16,19 +16,14 @@ sys.path.append(
     os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..', 'sparco', 'qn')))
 
 import sparco
+import sparco.cli
 import sparco.mpi as mpi
 # from datadb import DB
 # from sparse_coder import SparseCoder
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-i', '--input-directory',
-    help='path to directory containing input files')
-parser.add_argument('-o', '--output-directory',
-    help='path to directory containing output files')
+parser = sparco.cli.arg_parser
 parser.add_argument('-I', '--inner-directory', action='store_true',
     help='do not create a directory inside the output directory')
-# parser.add_argument('-n', '--num-nodes', type=int,
-#     help='do not create a directory inside the output directory')
 args = parser.parse_args()
 
 C = 64  # num channels
@@ -55,8 +50,9 @@ def make_db(channels):
 
 
 profile_space = {
-    'channels': [16,32,64],
-    'patch_size': [128,256],
+    # 'channels': [16,32,64],
+    'channels': [64],
+    'patch_size': [128],
     'patches_per_node': [1,2,4],
     # 'nodes': ????,
     'basis_method': [1,2]
@@ -82,7 +78,7 @@ for pc in profile_configs:
       'T': pc['patch_size'],
       'batch_size': mpi.procs * pc['patches_per_node'],
       'num_iterations': 2000,
-      'run_time_limit': 30,
+      'run_time_limit': 120,
       'target_angle': 5,
       'max_angle': 10,
       'create_plots': False,
