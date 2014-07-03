@@ -3,8 +3,6 @@ Calls cython quasinewton algorithm with batches
 """
 import numpy as np
 import quasinewton as qn
-# import ipdb
-# import matplotlib.pyplot as plt
 
 class Objective(object):
 
@@ -81,11 +79,6 @@ def sparseqn_batch(phi, X, lam=1., maxit=25,
     q = qn.owlbfgs(obj, N*alen, lam=lam,
                    debug=debug, maxit=maxit, delta=delta,
                    past=past, pos=positive)
-
-    # for i in range(npats):
-    #     q.clear()
-    #     A[i] = q.run(A[i].flatten()).reshape(A[i].shape)
-    #     obj.indx += 1
 
     A = q.run(A.flatten()).reshape(N, alen)
     return A

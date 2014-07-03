@@ -27,30 +27,14 @@ P = 64  # time steps per basis function
 T = 128  # time size of 
 
 db = sparco.db.DB(**{
-    'dims': (C, N, P, T),
-    'channels': range(C),
-    'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
-    'cache': 50, #T*subsample*cache  determines the batch size
+    'cache_size': 1000, #T*subsample*cache  determines the batch size
     'resample': 2,
-    'cull': 0.,
-    'maxcull': 5., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
-    'std_threshold': 0., # default was 2 but does not work with climate data?
     'subsample': 2, # downsampling 128 1ms to 64 2ms
-    'normalize': 'patch',
-    'smooth': False,
-    'line': False,
-    'Fs': 1000
     })
 
 # lam, maxit, niter, target
 output_path = os.path.join(args.output_directory,
     "trial{0}".format(time.strftime("%y%m%d%H%M%S")))
-ladder = [[0.1,   5,   2000, 5.],
-          [0.3, 10,   2000, 2.],
-          [0.5, 20,   2000, 2.],
-          [0.7, 25,   4000, 1.0],
-          [0.9, 30, 10000, 0.5],
-          [1.0, 35, 40000, 0.5]]
 configs = []
 
 for lam, maxit, num_iterations, target_angle in ladder:

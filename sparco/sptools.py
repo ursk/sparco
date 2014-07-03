@@ -3,11 +3,12 @@ some random tools, slow code.
 """
 from IPython import embed
 
+import collections
+import imp
 import os
 import time
 import types
 
-# import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as signal
 
@@ -71,12 +72,12 @@ def merge(*dicts):
   """
   def mergeInner(config1, config2):
     for k,v in config2.items():
-      if type(v) is dict and config1.has_key(k):
+      if isinstance(v, dict) and config1.has_key(k):
         config1[k].update(config2[k])
       else:
         config1[k] = config2[k]
     return config1
-  return reduce(mergeInner, dicts)
+  return reduce(mergeInner, dicts, {})
 
 def blur(phi, window=.2):
     """
@@ -243,3 +244,26 @@ def compute_grid_dimensions(min_cells, nrows=None, ncols=None):
     return nrows, np.ceil(min_cells / nrows)
   else:
     return nrows, ncols
+
+# facets
+
+def autonew_dict():
+  def inner():
+    return collections.defaultdict(inner)
+  return collections.defaultdict(inner)
+
+def expand_args(args, mapping):
+  d = autonew_dict()
+  for argname,keys in mapping.items():
+    if getattr(args, argname) != None:
+      reduce(lambda d,k: d[k], keys[0:-1], d)[keys[-1]] = getattr(args, argname)
+  return d
+
+def load_config(path=None, default_name = None,
+    default_paths=[os.path.expanduser('~'), '.']):
+  path = os.path.normpath(path or os.path.expanduser("~/{0}".format(name)))
+  local_config = {}
+  if os.path.exists(path):
+    local_config = imp.load_source('local_config', path)
+  return local_config
+

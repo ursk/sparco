@@ -80,7 +80,7 @@ class DB(object):
     gen_func = functools.partial(sptools.sample_array,
         self.superpatch, self.patch_length, axis=1)
     gen = iter(gen_func, None)
-    filt = lambda p: s = self.patch_stats(p); [ test(s) for test in self.patch_filters ]
+    filt = functools.partial(self.patch_filter, self)
     return np.array(sptools.generate_filtered(gen, filt, num))
 
   def refresh_cache(self):

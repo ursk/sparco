@@ -9,8 +9,9 @@ Key:
 Note:
 1. The kernels are convolution kernels.
 """
+
 from IPython import embed
-import csv
+
 import functools
 import os
 import time
@@ -45,7 +46,6 @@ class Spikenet(object):
       logger_settings: Keyword arguments for logger initializer.
       echo:  echo stdout to console
       movie:  use movie basis writer (for natural scenes)
-      plots:  whether or not to output plots (due to memory leak in matplotlib)
   """
 
   def __init__(self, **kwargs):
@@ -56,6 +56,8 @@ class Spikenet(object):
       'batch_size': 10,
       'num_iterations': 100,
       'run_time_limit': None,
+      'dictionary_size': 100,
+      'convolution_time_length': 64,
       'phi': None,
       'inference_function': sparco.qn.sparseqn.sparseqn_batch,
       'inference_settings': {
@@ -75,7 +77,6 @@ class Spikenet(object):
       'update_coefficient_statistics_interval': 100,
       'basis_centering_interval': None,
       'basis_centering_max_shift': None,
-      'output_path': os.path.join(home, 'sparco_out'),
       'basis_method': 1,  # TODO this is a temporary measure
       }
     settings = sptools.merge(defaults, kwargs)
@@ -84,12 +85,8 @@ class Spikenet(object):
 
     # TODO temp for profiling
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
-    if mpi.rank == mpi.root:
-      self.create_root_buffers = getattr(self,
+    self.create_root_buffers = getattr(self,
           "create_root_buffers{0}".format(self.basis_method))
-
-    # TODO temp for profiling
-    self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
 
     self.patches_per_node = self.batch_size / mpi.procs
     sptools.mixin(self, self.learner_class)
@@ -97,12 +94,14 @@ class Spikenet(object):
     self.run_time =0
     self.last_time = time.time()
 
-    C, N, P = self.phi.shape; T = self.db.T
+    C, N, P = len(self.db.channels), self.dictionary_size, self.convolution_time_length
+    T = self.db.patch_length
     buffer_dimensions = { 'a': (N, P+T-1), 'x': (C, T), 'xhat': (C,T),
         'dx': (C,T), 'dphi': (C,N,P), 'E': (1,), 'a_l0_norm': (N,),
         'a_l1_norm': (N,), 'a_l2_norm': (N,), 'a_variance': (N,) }
     self.create_node_buffers(buffer_dimensions)
     self.create_root_buffers(buffer_dimensions)
+    self.initialize_phi(C,N,P)
 
   def create_node_buffers(self, buffer_dimensions):
     nodebufs, nodebufs_mean = {}, {}
@@ -111,12 +110,18 @@ class Spikenet(object):
       nodebufs_mean[name] = np.zeros(dims)
     self.nodebufs = sptools.data(mean=sptools.data(**nodebufs_mean), **nodebufs)
 
-  def create_root_buffers(self, buffer_dimensions):
+  # TODO temp for profiling
+  def create_root_buffers1(self, buffer_dimensions):
     rootbufs, rootbufs_mean = {}, {}
     for name,dims in buffer_dimensions.items():
       rootbufs[name], rootbufs_mean['name'] = None, None
     self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
 
+  create_root_buffers2 = create_root_buffers1
+
+  def initialize_phi(self, *dims):
+    self.phi = self.phi or np.empty(basis_dims)
+    mpi.bcast(self.phi)
 
 ### Learning
 # methods here draw on methods provided by a learner mixin
@@ -219,9 +224,17 @@ class RootSpikenet(Spikenet):
       rootbufs_mean[name] = np.zeros(dims)
     self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
 
+  def initialize_phi(self, *dims):
+    self.phi = self.phi or np.random.randn(*dims)
+    self.phi /= sptools.vnorm(phi)
+    super(RootSpiken, self).initialize_phi(*dims)
+
   def iteration(self):
-    self.rootbufs.x = self.db.get_patches(self.batch_size)
+    self.load_patches()
     super(RootSpikenet, self).iteration()
+
+  def load_patches(self):
+    self.rootbufs.x = self.db.get_patches(self.batch_size)
 
   def infer_coefficients(self):
     super(RootSpikenet, self).infer_coefficients()
