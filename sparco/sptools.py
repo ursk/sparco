@@ -174,20 +174,6 @@ def smooth(phi):
   for n in range(self.N):
     phi[:,n] = scipy.signal.lfilter(b, a, phi[:,n], axis=1)
 
-
-# profiling
-
-PROFILING_TABLE = {}
-def time_track(orig):
-  PROFILING_TABLE[orig.__name__] = []
-  def tracked_function(*args, **kwargs):
-    start = time.time()
-    res = orig(*args, **kwargs)
-    end = time.time()
-    PROFILING_TABLE[orig.__name__].append(end - start)
-    return res
-  return tracked_function if mpi.rank == mpi.root else orig
-
 # TODO complete this terminating decorator
 # def terminate_after(seconds):
 #   def inner_decorator(orig):

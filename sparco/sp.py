@@ -72,35 +72,28 @@ class Spikenet(object):
       'eta_down_factor': .99,
       'target_angle': 1.,
       'max_angle': 2.,
+      'update_coefficient_statistics_interval': 100,
       'basis_centering_interval': None,
       'basis_centering_max_shift': None,
-      'writer_class': sparco.output.Writer,
-      'write_interval': 100,
       'output_path': os.path.join(home, 'sparco_out'),
-      'create_plots': True,
-      'log_active': False,
-      'log_path': os.path.join(home, 'sparco_out', "sparco.log"),
-      'basis_method': 1,  # TODO this is a temporary measuer
-      # 'logger_settings': {
-      #   'echo': True,
-      #   }
+      'basis_method': 1,  # TODO this is a temporary measure
       }
     settings = sptools.merge(defaults, kwargs)
     for k,v in settings.items():
       setattr(self, k, v)
+
     # TODO temp for profiling
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
     if mpi.rank == mpi.root:
-      self.create_root_buffers = getattr(self, "create_root_buffers{0}".format(self.basis_method))
+      self.create_root_buffers = getattr(self,
+          "create_root_buffers{0}".format(self.basis_method))
 
     self.phi /= sptools.vnorm(self.phi)
     self.patches_per_node = self.batch_size / mpi.procs
-    self.update_coeff_statistics_interval = self.write_interval
     sptools.mixin(self, self.learner_class)
     self.a_variance_cumulative = np.zeros(self.phi.shape[1])
     self.run_time =0
     self.last_time = time.time()
-    self.validate_configuration()
 
     C, N, P = self.phi.shape; T = self.db.T
     buffer_dimensions = { 'a': (N, P+T-1), 'x': (C, T), 'xhat': (C,T),
@@ -119,13 +112,6 @@ class Spikenet(object):
   def create_root_buffers(self, buffer_dimensions):
     for name,dims in buffer_dimensions.items():
       setattr(self.rootbufs, name, None)
-
-  def validate_configuration(self):
-    """Throw an exception for any invalid config parameter."""
-    # if self.phi.shape != self.basis_dims:
-    #   raise ValueError('Warm start phi wrong dimensions')
-    if self.batch_size % mpi.procs != 0:
-      raise ValueError('Batch size not multiple of number of procs')
 
 ### Learning
 # methods here draw on methods provided by a learner mixin
@@ -157,8 +143,6 @@ class Spikenet(object):
     for i in range(self.patches_per_node):
       self.nodebufs.a[i] = self.inference_function(self.phi,
           self.nodebufs.x[i], **self.inference_settings)
-    # self.a = self.inference_function(self.phi, self.x,
-    #   **self.inference_settings)
 
   # more parallel, higher bandwidth requirement
   def learn_basis1(self):
@@ -205,20 +189,8 @@ class Spikenet(object):
 
 class RootSpikenet(Spikenet):
 
-  # TODO cleanup logging and profiling; move writer initialization to writer class
   def __init__(self, **kwargs):
-    super(RootSpikenet, self).__init__(**kwargs)
-    sptools.mixin(self, self.writer_class)
-    os.makedirs(self.output_path)
-    self.write_configuration(kwargs)
-    self.profile_table = csv.DictWriter(
-        open(os.path.join(self.output_path, 'profiling.csv'), 'w+'),
-        sptools.PROFILING_TABLE.keys())
-    self.profile_table.writeheader()
-    if self.log_active:
-      log_file = open(self.log_settings['path'], 'w+')
-      sys.stdout = sparco.output.Logger(sys.stdout, log_file, **self.logger_settings)
-      sys.stderr = sparco.output.Logger(sys.stderr, log_file, **self.logger_settings)
+    Spikenet.__init__(self, **kwargs)
 
   def create_root_buffers1(self, buffer_dimensions):
     rootbufs, rootbufs_mean = {}, {}
@@ -241,20 +213,15 @@ class RootSpikenet(Spikenet):
   def iteration(self):
     self.rootbufs.x = self.db.get_patches(self.batch_size)
     super(RootSpikenet, self).iteration()
-    if self.t > 0 and self.write_interval and self.t % self.write_interval == 0:
-      self.write_snapshot()
 
-  @sptools.time_track
   def infer_coefficients(self):
     super(RootSpikenet, self).infer_coefficients()
 
-  @sptools.time_track
   def learn_basis1(self):
     super(RootSpikenet, self).learn_basis1()
     self.average_patch_objectives(self.rootbufs)
     self.update_eta_and_phi()
 
-  @sptools.time_track
   def learn_basis2(self):
     super(RootSpikenet, self).learn_basis2()
     self.compute_patch_objectives(self.rootbufs)
