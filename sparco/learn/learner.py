@@ -7,7 +7,7 @@ different learning methods
 4. Truncated projected gradient
 """
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from sptools import attributesFromDict, debug, norm, vnorm
 from time import time as now
 import mpi4py.rc

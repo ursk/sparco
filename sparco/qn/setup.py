@@ -8,7 +8,8 @@ import os
 cblas_include = os.getenv('BLASPATH')
 print cblas_include
 include_dirs = [numpy.get_include(), cblas_include]
-library_dirs = []
+lib = os.path.join(os.path.split(os.getenv('BLASPATH'))[0], 'lib')
+library_dirs = [lib]
 
 ext_modules = [
         Extension('quasinewton',

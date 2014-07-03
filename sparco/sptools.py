@@ -7,7 +7,7 @@ import os
 import time
 import types
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as signal
 
@@ -215,22 +215,22 @@ def grid_image(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
       I[sy:sy+max(1,np.round(l2norm[i]*n)), sx+o] = .6      
   return I
 
-def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None,
-              cmap=plt.cm.jet, figno=1, filename=None, title=None):
-  image = grid_image(mat, nrows, ncols, grid_line_width, params)
-  fig = plt.figure(figno)
-  plt.clf()
-  plt.imshow(image, cmap=cmap, interpolation='nearest', aspect='equal',
-             origin='upper',vmax=1, vmin=0)
-  if title:
-    plt.title(title)
-  plt.subplots_adjust(left=0.02, bottom=0.02, right=0.98, top=0.95,
-            wspace=0.02, hspace=0.02)
-  plt.draw()
-  # save figure  
-  if filename:
-    dpi = max(150, np.int(2*I.shape[0]/fig.get_figheight()))
-    plt.savefig(filename, dpi=dpi)
+# def grid_plot(mat, nrows=None, ncols=None, grid_line_width=3, params=None,
+#               cmap=plt.cm.jet, figno=1, filename=None, title=None):
+#   image = grid_image(mat, nrows, ncols, grid_line_width, params)
+#   fig = plt.figure(figno)
+#   plt.clf()
+#   plt.imshow(image, cmap=cmap, interpolation='nearest', aspect='equal',
+#              origin='upper',vmax=1, vmin=0)
+#   if title:
+#     plt.title(title)
+#   plt.subplots_adjust(left=0.02, bottom=0.02, right=0.98, top=0.95,
+#             wspace=0.02, hspace=0.02)
+#   plt.draw()
+#   # save figure  
+#   if filename:
+#     dpi = max(150, np.int(2*I.shape[0]/fig.get_figheight()))
+#     plt.savefig(filename, dpi=dpi)
 
 
 def compute_grid_dimensions(min_cells, nrows=None, ncols=None):

@@ -7,6 +7,8 @@ import glob
 import os
 import sys
 
+import scipy.io
+
 sys.path.append(
     os.path.normpath(os.path.join(os.path.realpath(__file__), '..', '..')))
 # TODO fix this-- the issue is that tokyo is not on the load path
@@ -16,31 +18,38 @@ sys.path.append(
 import sparco
 import sparco.cli
 import sparco.mpi as mpi
-# from datadb import DB
-# from sparse_coder import SparseCoder
 
 args = sparco.cli.parse_args()
 
-C = 64  # num channels
-N = 100  # num basis functions
-P = 64  # time steps per basis function
-T = 128  # time size of 
+a = scipy.io.loadmat(os.path.join(args.input_directory, 'EC2.cntrlslc.cplngchns.mat'))
+channels = a['elects1'].flatten()-1
+dims = (len(channels), 100, 64, 2*64)
 
-db = sparco.db.DB(**{
-    'dims': (C, N, P, T),
-    'channels': range(C),
-    'filenames': glob.glob(os.path.join(args.input_directory, '*.h5')),
-    'cache': 50, #T*subsample*cache  determines the batch size
-    'resample': 2,
-    'cull': 0.,
-    'maxcull': 5., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
-    'std_threshold': 0., # default was 2 but does not work with climate data?
-    'subsample': 2, # downsampling 128 1ms to 64 2ms
-    'normalize': 'patch',
-    'smooth': False,
-    'line': False,
-    'Fs': 1000
-    })
+db = DB(**{
+		'dims': dims,
+		'channels': channels,
+    'filenames': glob.glob(os.path.join(args.input_directory, '*.h5'))[0:200],
+		'cache': 2, #T*subsample*cache  determines the batch size
+		'resample': 1,
+		'cull': 0.,
+		'maxcull': 100., # (URS) changed 5 to 10 because a lot of times patches were rejected. Changed back: This is a problem with the data being too white
+		'std_threshold': 0., # default was 2 but does not work with climate data?
+		'subsample': 1, # downsampling 128 1ms to 64 2ms
+		'normalize': 'patch',
+		'smooth': False,
+		'line': False,
+		'Fs': 200
+		})
+
+ladder = [[0.1,	 5,	 2000, 5.],
+					[0.3, 10,	 2000, 2.],
+					[0.5, 20,	 2000, 2.],
+					[0.7, 25,	 4000, 1.0],
+					[0.9, 30, 10000, 0.5],
+					[1.0, 35, 40000, 0.5]]
+configs = []
+
+# embed()
 
 # lam, maxit, niter, target
 output_path = os.path.join(args.output_directory,

@@ -11,10 +11,10 @@ Note:
 """
 from IPython import embed
 import csv
+import functools
 import os
 import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import mpi
@@ -88,7 +88,9 @@ class Spikenet(object):
       self.create_root_buffers = getattr(self,
           "create_root_buffers{0}".format(self.basis_method))
 
-    self.phi /= sptools.vnorm(self.phi)
+    # TODO temp for profiling
+    self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
+
     self.patches_per_node = self.batch_size / mpi.procs
     sptools.mixin(self, self.learner_class)
     self.a_variance_cumulative = np.zeros(self.phi.shape[1])
@@ -110,8 +112,11 @@ class Spikenet(object):
     self.nodebufs = sptools.data(mean=sptools.data(**nodebufs_mean), **nodebufs)
 
   def create_root_buffers(self, buffer_dimensions):
+    rootbufs, rootbufs_mean = {}, {}
     for name,dims in buffer_dimensions.items():
-      setattr(self.rootbufs, name, None)
+      rootbufs[name], rootbufs_mean['name'] = None, None
+    self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
+
 
 ### Learning
 # methods here draw on methods provided by a learner mixin
@@ -170,16 +175,20 @@ class Spikenet(object):
   # TODO see if I can get the normalized norms in a single call
   def update_coefficient_statistics(self):
     for i in range(self.patches_per_node):
-      self.nodebufs.a_l0_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=0, axis=1)
+
+      l0_norm = functools.partial(np.linalg.norm, ord=0)
+      self.nodebufs.a_l0_norm[i] = np.apply_along_axis(l0_norm, 1, self.nodebufs.a[i])
       self.nodebufs.a_l0_norm[i] /= self.nodebufs.a[i].shape[1]
 
-      self.nodebufs.a_l1_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=1, axis=1)
+      l1_norm = functools.partial(np.linalg.norm, ord=1)
+      self.nodebufs.a_l1_norm[i] = np.apply_along_axis(l1_norm, 1, self.nodebufs.a[i])
       self.nodebufs.a_l1_norm[i] /= np.max(self.nodebufs.a_l1_norm[i])
 
-      self.nodebufs.a_l2_norm[i] = np.linalg.norm(self.nodebufs.a[i], ord=2, axis=1)
+      l2_norm = functools.partial(np.linalg.norm, ord=2)
+      self.nodebufs.a_l2_norm[i] = np.apply_along_axis(l2_norm, 1, self.nodebufs.a[i])
       self.nodebufs.a_l2_norm[i] /= np.max(self.nodebufs.a_l2_norm[i])
 
-      self.nodebufs.a_variance[i] = np.var(self.nodebufs.a[i], axis=1)
+      self.nodebufs.a_variance[i] = np.apply_along_axis(np.var, 1, self.nodebufs.a[i])
       self.nodebufs.a_variance[i] /= np.max(self.nodebufs.a_variance[i])
 
     for stat in ['a_l0_norm', 'a_l1_norm', 'a_l1_norm', 'a_variance']:
