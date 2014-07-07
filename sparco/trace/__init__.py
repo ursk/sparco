@@ -1,5 +1,6 @@
 from IPython import embed
 
+import logging
 import os
 import time
 
@@ -13,9 +14,14 @@ def configure(conf):
   defaults = {
       'output_path': os.path.join(os.path.expanduser('~'), 'sparco_out'),
       'snapshot_interval': 100,
+      'log_level': 'INFO'
       # 'profile_functions': { }  TODO implement later
       }
   settings = sptools.merge(defaults, conf)
+  log_path = (settings.get('log_path')
+      or os.path.join(settings['output_path'], 'sparco.log'))
+  logging.basicConfig(filename=log_path,
+      level=getattr(logging, settings['log_level'].upper()))
   sparco.trace.sp.Tracer.snapshot_interval = settings['snapshot_interval']
   trial_dir = os.path.join(settings['output_path'],
       'trial{0}'.format(time.strftime('%y%m%d%H%M%S')))

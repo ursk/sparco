@@ -17,10 +17,15 @@ import os
 import time
 
 import numpy as np
+import pfacets
 
 import mpi
 import sparco
 import sparco.sptools as sptools
+
+###################################
+########### MPI NODE
+###################################
 
 class Spikenet(object):
   """
@@ -48,6 +53,8 @@ class Spikenet(object):
       movie:  use movie basis writer (for natural scenes)
   """
 
+  ########### INITIALIZATION
+
   def __init__(self, **kwargs):
     """Set and validate configuration, initialize output classes."""
     home = os.path.expanduser('~')
@@ -55,7 +62,7 @@ class Spikenet(object):
       'db': None,
       'batch_size': 10,
       'num_iterations': 100,
-      'run_time_limit': None,
+      'run_time_limit': float("inf"),
       'dictionary_size': 100,
       'convolution_time_length': 64,
       'phi': None,
@@ -79,9 +86,7 @@ class Spikenet(object):
       'basis_centering_max_shift': None,
       'basis_method': 1,  # TODO this is a temporary measure
       }
-    settings = sptools.merge(defaults, kwargs)
-    for k,v in settings.items():
-      setattr(self, k, v)
+    pfacets.set_attributes(self, defaults, kwargs)
 
     # TODO temp for profiling
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
@@ -89,8 +94,8 @@ class Spikenet(object):
           "create_root_buffers{0}".format(self.basis_method))
 
     self.patches_per_node = self.batch_size / mpi.procs
-    sptools.mixin(self, self.learner_class)
-    self.a_variance_cumulative = np.zeros(self.phi.shape[1])
+    pfacets.mixin(self, self.learner_class)
+    self.a_variance_cumulative = np.zeros(self.dictionary_size)
     self.run_time =0
     self.last_time = time.time()
 
@@ -108,28 +113,27 @@ class Spikenet(object):
     for name,dims in buffer_dimensions.items():
       nodebufs[name] = np.zeros((self.patches_per_node,) + dims)
       nodebufs_mean[name] = np.zeros(dims)
-    self.nodebufs = sptools.data(mean=sptools.data(**nodebufs_mean), **nodebufs)
+    self.nodebufs = pfacets.data(mean=pfacets.data(**nodebufs_mean), **nodebufs)
 
   # TODO temp for profiling
   def create_root_buffers1(self, buffer_dimensions):
     rootbufs, rootbufs_mean = {}, {}
     for name,dims in buffer_dimensions.items():
       rootbufs[name], rootbufs_mean['name'] = None, None
-    self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
+    self.rootbufs = pfacets.data(mean=pfacets.data(**rootbufs_mean), **rootbufs)
 
   create_root_buffers2 = create_root_buffers1
 
   def initialize_phi(self, *dims):
-    self.phi = self.phi or np.empty(basis_dims)
+    self.phi = np.empty(basis_dims) if self.phi is None else self.phi
     mpi.bcast(self.phi)
 
-### Learning
-# methods here draw on methods provided by a learner mixin
+  ########### LEARNING
+  # methods here draw on methods provided by a learner mixin
 
   # TODO use a decorator for time termination
   def run(self):
     """ Learn basis by alternative online minimization."""
-    self.t = 0
     for self.t in range(self.num_iterations):
       if not self.within_time_limit(): return
       self.iteration() 
@@ -175,7 +179,7 @@ class Spikenet(object):
     bufset.mean.dphi = np.mean(bufset.dphi, axis=0)
     bufset.mean.E = np.mean(bufset.E, axis=0)
 
-### Coefficient Statistics
+  ########### COEFFICIENT STATISTICS
 
   # TODO see if I can get the normalized norms in a single call
   def update_coefficient_statistics(self):
@@ -200,6 +204,9 @@ class Spikenet(object):
       setattr(self.nodebufs.mean, stat, np.mean(getattr(self.nodebufs, stat), axis=0))
       mpi.gather(getattr(self.nodebufs.mean, stat), getattr(self.rootbufs, stat))
 
+###################################
+########### MPI ROOT
+###################################
 
 class RootSpikenet(Spikenet):
 
@@ -213,7 +220,7 @@ class RootSpikenet(Spikenet):
       first_dim = mpi.procs if (name in proc_based) else self.batch_size
       rootbufs[name] = np.zeros((first_dim,) + dims)
       rootbufs_mean[name] = np.zeros(dims)
-    self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
+    self.rootbufs = pfacets.data(mean=pfacets.data(**rootbufs_mean), **rootbufs)
 
   def create_root_buffers2(self, buffer_dimensions):
     rootbufs, rootbufs_mean = {}, {}
@@ -222,12 +229,12 @@ class RootSpikenet(Spikenet):
       first_dim = mpi.procs if (name in proc_based) else self.batch_size
       rootbufs[name] = np.zeros((first_dim,) + dims)
       rootbufs_mean[name] = np.zeros(dims)
-    self.rootbufs = sptools.data(mean=sptools.data(**rootbufs_mean), **rootbufs)
+    self.rootbufs = pfacets.data(mean=pfacets.data(**rootbufs_mean), **rootbufs)
 
   def initialize_phi(self, *dims):
-    self.phi = self.phi or np.random.randn(*dims)
-    self.phi /= sptools.vnorm(phi)
-    super(RootSpiken, self).initialize_phi(*dims)
+    self.phi = np.random.randn(*dims) if self.phi is None else self.phi
+    self.phi /= sptools.vnorm(self.phi)
+    super(RootSpikenet, self).initialize_phi(*dims)
 
   def iteration(self):
     self.load_patches()

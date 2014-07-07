@@ -7,7 +7,6 @@ different learning methods
 4. Truncated projected gradient
 """
 import numpy as np
-from sptools import attributesFromDict, debug, norm, vnorm
 from time import time as now
 import mpi4py.rc
 mpi4py.rc.profile('MPE')

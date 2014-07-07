@@ -1,3 +1,5 @@
+import os
+
 import h5py
 
 import traceutil.tracer
@@ -13,12 +15,12 @@ class Tracer(traceutil.tracer.Tracer):
   def write_basis(self):
     self.basis_path = os.path.join(self.output_path, '{0}.h5'.format(self.t))
     h5 = h5py.File(self.basis_path, 'w')
-    h5.create_dataset('phi', data=self.phi)
-    h5.create_dataset('order', data=self.basis_sort_order)
-    h5.create_dataset('variance', data=self.rootbufs.mean.a_variance)
-    h5.create_dataset('l0', data=self.rootbufs.mean.a_l0_norm)
-    h5.create_dataset('l1', data=self.rootbufs.mean.a_l1_norm)
-    h5.create_dataset('l2', data=self.rootbufs.mean.a_l2_norm)
+    h5.create_dataset('phi', data=self.target.phi)
+    h5.create_dataset('order', data=self.target.basis_sort_order)
+    h5.create_dataset('variance', data=self.target.rootbufs.mean.a_variance)
+    h5.create_dataset('l0', data=self.target.rootbufs.mean.a_l0_norm)
+    h5.create_dataset('l1', data=self.target.rootbufs.mean.a_l1_norm)
+    h5.create_dataset('l2', data=self.target.rootbufs.mean.a_l2_norm)
     h5.close()
 
   # create soft-link to basis file
@@ -36,22 +38,26 @@ class Tracer(traceutil.tracer.Tracer):
   def profile_targets(self):
     return ['learn_basis1', 'learn_basis2', 'load_patches', 'infer_coefficients']
 
-  def wrappers(self):
+  # custom decorators
 
-    def __init__(orig):
-      def wrapped(self, *args, **kwargs):
-        ret = orig(self, *args, **kwargs)
-        self.snapshot_interval = Tracer.snapshot_interval
-        self.dump_state(os.path.join(self.output_path, 'config.txt'))
-        return ret
-      return wrapped
+  def t___init__(tracer, orig, self, *args, **kwargs):
+    ret = orig(self, *args, **kwargs)
+    tracer.snapshot_interval = Tracer.snapshot_interval
+    tracer.dump_state(os.path.join(tracer.output_path, 'config.txt'))
+    return ret
 
-    def iteration(orig):
-      def wrapped(self, *args, **kwargs):
-        ret = orig(self, *args, **kwargs)
-        if self.t > 0 and self.snapshot_interval and self.t % self.snapshot_interval == 0:
-          self.write_snapshot()
-        return ret
-      return wrapped
+  def t_iteration(tracer, orig, self, *args, **kwargs):
+    ret = orig(self, *args, **kwargs)
+    if (self.t > 0 and tracer.snapshot_interval
+        and self.t % tracer.snapshot_interval == 0):
+      tracer.write_snapshot()
+    return ret
 
-    return [__init__, iteration]
+  wrappers = {
+      '__init__': [t___init__],
+      'iteration': [t_iteration]
+      }
+
+setattr(target, f.__name__,
+    functools.partial(f, self, getattr(target, f.__name__)))
+

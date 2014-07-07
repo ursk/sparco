@@ -14,99 +14,9 @@ import scipy.signal as signal
 
 import sparco.mpi as mpi
 
-DEBUG = True
-
-class data:
-  def __init__(self, **kwargs):
-    self.__dict__.update(kwargs)
-
-def mixin(instance, mixin_class):
-  """Dynamic mixin of methods into instance - works only for new style classes"""
-  for name in mixin_class.__dict__:
-    if name.startswith('__') and name.endswith('__'):
-      continue
-    elif not type(mixin_class.__dict__[name])==types.FunctionType:
-      continue
-    else:
-      instance.__dict__[name]=mixin_class.__dict__[name].__get__(instance)
-
-def debug(str):
-    if DEBUG: print "(%s)" % str
-
-def vnorm(phi):
-    """
-    Norm of each basis element as a [1, N, 1] matrix
-    """
-    return np.sqrt((phi**2).sum(axis=0).sum(axis=1))[np.newaxis,:,np.newaxis]
-
-def norm(phi):
-    """
-    Norm of each basis element as a N-vector
-    """
-    return np.sqrt((phi**2).sum(axis=0).sum(axis=1))
-
-def attributesFromDict(d):
-    "Automatically initialize instance variables, Python Cookbook 6.18"
-    self = d.pop('self')
-    for n, v in d.iteritems():
-        setattr(self, n, v)
-
-def weighted_randint(weights, size=1):
-    """
-    Returns size random integers from 0 to len(weights)-1
-    weighted with weights
-    """
-    s = np.nonzero(np.random.multinomial(1, weights, size=size))[1]
-    if size == 1:
-        return s[0]
-    else:
-        return s
-
-def merge(*dicts):
-  """Merge an arbitrary number of dictionaries.
-
-  Values in dictionaries occurring later in the argument list have priority.
-
-  Args:
-    *dicts: Arbitrary number of configuration dictionaries.
-  """
-  def mergeInner(config1, config2):
-    for k,v in config2.items():
-      if isinstance(v, dict) and config1.has_key(k):
-        config1[k].update(config2[k])
-      else:
-        config1[k] = config2[k]
-    return config1
-  return reduce(mergeInner, dicts, {})
-
-def blur(phi, window=.2):
-    """
-    Gaussian blur of basis functions
-    """
-    C, N, P = phi.shape
-    w = np.int(window * min(C,P))
-    g = signal.gaussian(w, 1)
-    philp = np.empty_like(phi)
-    for i in range(N):
-        philp[:,i] = signal.sepfir2d(phi[:,i], g, g)
-    return philp
-
-def sample_array(ary, length, axis=0):
-  max_start = ary.shape[axis] - length + 1
-  start = np.random.randint(0, max_start)
-  slc = (slice(None),)*ary.ndims
-  slc[axis] = slice(start, start+length)
-  return ary[slc]
-
-def generate_filtered(gen, filt, num):
-  res = []
-  while len(res) < num:
-    x = gen()
-    filt(x) and res.append(x)
-  return res
-
-
-# computing objective function
+###################################
+########### OBJECTIVE
+###################################
 # TODO give more generic names, move
 
 def obj(x, a, phi):
@@ -139,8 +49,35 @@ def compute_proposed_phi(phi, dphi, eta):
   newphi = phi - eta * dphi
   return newphi / vnorm(newphi)
 
-# center and smooth basis
-# TODO understand and clean up
+
+###################################
+########### MATRIX/VECTOR OPERATIONS
+###################################
+# TODO Needed or can be done with numpy calls?
+
+def vnorm(phi):
+    """
+    Norm of each basis element as a [1, N, 1] matrix
+    """
+    return np.sqrt((phi**2).sum(axis=0).sum(axis=1))[np.newaxis,:,np.newaxis]
+
+def norm(phi):
+    """
+    Norm of each basis element as a N-vector
+    """
+    return np.sqrt((phi**2).sum(axis=0).sum(axis=1))
+
+def blur(phi, window=.2):
+    """
+    Gaussian blur of basis functions
+    """
+    C, N, P = phi.shape
+    w = np.int(window * min(C,P))
+    g = signal.gaussian(w, 1)
+    philp = np.empty_like(phi)
+    for i in range(N):
+        philp[:,i] = signal.sepfir2d(phi[:,i], g, g)
+    return philp
 
 def center(arr, maxshift=None):
   """
@@ -175,16 +112,9 @@ def smooth(phi):
   for n in range(self.N):
     phi[:,n] = scipy.signal.lfilter(b, a, phi[:,n], axis=1)
 
-# TODO complete this terminating decorator
-# def terminate_after(seconds):
-#   def inner_decorator(orig):
-#       @functools.wraps(orig)
-#       def wrapper(*args, **kwargs):
-#         return test_func(*args, **kwargs)
-#       return wrapper
-#     return actualDecorator
-
-# plotting
+###################################
+########### PLOTTING
+###################################
 # TODO clean this up and just use matplotlib's subplot functionality
 
 def grid_image(mat, nrows=None, ncols=None, grid_line_width=3, params=None):
@@ -245,25 +175,25 @@ def compute_grid_dimensions(min_cells, nrows=None, ncols=None):
   else:
     return nrows, ncols
 
-# facets
+###################################
+########### OTHER
+###################################
 
-def autonew_dict():
-  def inner():
-    return collections.defaultdict(inner)
-  return collections.defaultdict(inner)
+# TODO complete this terminating decorator
+# def terminate_after(seconds):
+#   def inner_decorator(orig):
+#       @functools.wraps(orig)
+#       def wrapper(*args, **kwargs):
+#         return test_func(*args, **kwargs)
+#       return wrapper
+#     return actualDecorator
 
-def expand_args(args, mapping):
-  d = autonew_dict()
-  for argname,keys in mapping.items():
-    if getattr(args, argname) != None:
-      reduce(lambda d,k: d[k], keys[0:-1], d)[keys[-1]] = getattr(args, argname)
-  return d
+###################################
+########### DEPRECATED
+###################################
 
-def load_config(path=None, default_name = None,
-    default_paths=[os.path.expanduser('~'), '.']):
-  path = os.path.normpath(path or os.path.expanduser("~/{0}".format(name)))
-  local_config = {}
-  if os.path.exists(path):
-    local_config = imp.load_source('local_config', path)
-  return local_config
-
+def attributesFromDict(d):
+    "Automatically initialize instance variables, Python Cookbook 6.18"
+    self = d.pop('self')
+    for n, v in d.iteritems():
+        setattr(self, n, v)

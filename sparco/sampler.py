@@ -1,19 +1,15 @@
 from IPython import embed
-"""
-Import various kinds of data
-
-Some duplicate code between datasets
-"""
 
 import functools
+import glob
+import re
 import os
-import numpy as np
-import h5py
-from scipy.ndimage.filters import gaussian_filter1d
-import sptools
-from time import time as now
 
-class DB(object):
+import h5py
+import pfacets
+import numpy as np
+
+class Sampler(object):
 
   def __init__(self, **kwargs):
     defaults = {
@@ -26,10 +22,8 @@ class DB(object):
         'patch_filters': map(lambda f: functools.partial(f, self), DB.patch_filters),
         'channels': None
         }
-    settings = sptools.merge(defaults, kwargs)
-    for k,v in settings:
-      setattr(self, k, v)
-    self.superpatch_length= self.patch_length * self.subsample * self.cache_size
+    pfacets.set_attributes(obj, defaults, kwargs)
+    self.superpatch_length = self.patch_length * self.subsample * self.cache_size
     self.channel_dimension = int(not self.time_dimension)
     self.load_datasets()
     self.update_configuration_from_datasets()
@@ -54,20 +48,22 @@ class DB(object):
   def update_configuration_from_datasets(self):
     """Pending decision about how to structure metadata"""
     if not self.channels:
-      self.channels = self.get_data_mat(self.datasets[0]).shape[self.channel_dimension]
+      num_channels = self.get_data_mat(self.datasets[0]).shape[self.channel_dimension]
+      self.channels = np.arange(num_channels)
 
   def filter_datasets(self):
     """Remove datasets that have a time length shorter than the configured minimum."""
-    self.datasets = [ ds for ds in datasets
-        if get_data_mat(ds)[self.time_dimension] >= self.superpatch_size]
-    sizes = [ ds['data'].shape[self.time_dimension] for ds in self.datasets ]
+    self.datasets = [ ds for ds in self.datasets
+        if self.get_data_mat(ds).shape[self.time_dimension] >= self.superpatch_length]
+    sizes = np.array([ ds['data'].shape[self.time_dimension] for ds in self.datasets ])
     self.relative_dataset_sizes = [ s / sizes.sum() for s in sizes ]
 
   # data sampling
 
-  def get_random_dataset(self):
+  def get_random_data_matrix(self):
     """Return a dataset with probability weighted by its size relative to all data."""
-    return self.datasets[sptools.weighted_randint(self.relative_dataset_sizes)]
+    ds = self.datasets[pfacets.np.weighted_randint(self.relative_dataset_sizes)]
+    return self.get_data_mat(ds)
 
   def get_patches(self, num):
     """Randomly select `num` valid patches from the cached superpatch.
@@ -77,11 +73,12 @@ class DB(object):
     """
     if self.patches_retrieved > (self.cache_size * self.resample_cache):
       self.refresh_cache()
-    gen_func = functools.partial(sptools.sample_array,
+    self.patches_retrieved += num
+    gen_func = functools.partial(pfacets.np.sample_array,
         self.superpatch, self.patch_length, axis=1)
     gen = iter(gen_func, None)
     filt = functools.partial(self.patch_filter, self)
-    return np.array(sptools.generate_filtered(gen, filt, num))
+    return np.array(pfacets.generate_filtered(gen, filt, num))
 
   def refresh_cache(self):
     """Cache a subset of all available data in memory.
@@ -89,9 +86,10 @@ class DB(object):
     Randomly selects a dataset and a continuous segment of that dataset of
     length `superpatch_length`. Reads this into variable `superpatch`.
     """
-    ds = self.get_random_dataset()
-    start = np.random.randint(0, db.shape[1] - self.superpatch_length)
-    self.superpatch = db[start:start+self.superpatch_length, self.channels]
+    ds = self.get_random_data_matrix()
+    start = np.random.randint(0, ds.shape[self.time_dimension] - self.superpatch_length)
+    self.superpatch = ds[start:start+self.superpatch_length, self.channels]
+    self.patches_retrieved = 0
 
   def patch_filter(self, patch):
     """Check if patch satisfies selection criteria.

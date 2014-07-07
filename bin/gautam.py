@@ -19,23 +19,23 @@ import sparco.mpi as mpi
 # from datadb import DB
 # from sparse_coder import SparseCoder
 
-args = sparco.cli.parse_args()
+# args = sparco.cli.parse_args()
 
-C = 64  # num channels
-N = 100  # num basis functions
-P = 64  # time steps per basis function
-T = 128  # time size of 
+# C = 64  # num channels
+# N = 100  # num basis functions
+# P = 64  # time steps per basis function
+# T = 128  # time size of 
 
-db = sparco.db.DB(**{
-    'cache_size': 1000, #T*subsample*cache  determines the batch size
-    'resample': 2,
-    'subsample': 2, # downsampling 128 1ms to 64 2ms
-    })
+# db = sparco.db.DB(**{
+#     'cache_size': 1000, #T*subsample*cache  determines the batch size
+#     'resample': 2,
+#     'subsample': 2, # downsampling 128 1ms to 64 2ms
+#     })
 
 # lam, maxit, niter, target
-output_path = os.path.join(args.output_directory,
-    "trial{0}".format(time.strftime("%y%m%d%H%M%S")))
-configs = []
+# output_path = os.path.join(args.output_directory,
+#     "trial{0}".format(time.strftime("%y%m%d%H%M%S")))
+# configs = []
 
 for lam, maxit, num_iterations, target_angle in ladder:
   configs.append({
