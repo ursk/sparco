@@ -5,3 +5,4 @@ import mpi
 import sptools
 from sp import RootSpikenet, Spikenet
 import sparse_coder
+import qn

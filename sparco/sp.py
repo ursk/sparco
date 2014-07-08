@@ -59,7 +59,7 @@ class Spikenet(object):
     """Set and validate configuration, initialize output classes."""
     home = os.path.expanduser('~')
     defaults = {
-      'db': None,
+      'sampler': None,
       'batch_size': 10,
       'num_iterations': 100,
       'run_time_limit': float("inf"),
@@ -86,7 +86,7 @@ class Spikenet(object):
       'basis_centering_max_shift': None,
       'basis_method': 1,  # TODO this is a temporary measure
       }
-    pfacets.set_attributes(self, defaults, kwargs)
+    pfacets.set_attributes_from_dicts(self, defaults, kwargs)
 
     # TODO temp for profiling
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
@@ -99,8 +99,8 @@ class Spikenet(object):
     self.run_time =0
     self.last_time = time.time()
 
-    C, N, P = len(self.db.channels), self.dictionary_size, self.convolution_time_length
-    T = self.db.patch_length
+    C, N, P = len(self.sampler.channels), self.dictionary_size, self.convolution_time_length
+    T = self.sampler.patch_length
     buffer_dimensions = { 'a': (N, P+T-1), 'x': (C, T), 'xhat': (C,T),
         'dx': (C,T), 'dphi': (C,N,P), 'E': (1,), 'a_l0_norm': (N,),
         'a_l1_norm': (N,), 'a_l2_norm': (N,), 'a_variance': (N,) }
@@ -150,7 +150,7 @@ class Spikenet(object):
     mpi.scatter(self.rootbufs.x, self.nodebufs.x)
     self.infer_coefficients()
     self.learn_basis()
-    if self.t > 0 and self.t % self.update_coeff_statistics_interval == 0:
+    if self.t > 0 and self.t % self.update_coefficient_statistics_interval == 0:
       self.update_coefficient_statistics()
 
   def infer_coefficients(self):
@@ -241,7 +241,7 @@ class RootSpikenet(Spikenet):
     super(RootSpikenet, self).iteration()
 
   def load_patches(self):
-    self.rootbufs.x = self.db.get_patches(self.batch_size)
+    self.rootbufs.x = self.sampler.get_patches(self.batch_size)
 
   def infer_coefficients(self):
     super(RootSpikenet, self).infer_coefficients()

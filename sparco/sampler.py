@@ -19,10 +19,10 @@ class Sampler(object):
         'hdf5_data_path': ['data'],
         'time_dimension': 1,
         'patch_length': 128,
-        'patch_filters': map(lambda f: functools.partial(f, self), DB.patch_filters),
+        'patch_filters': map(lambda f: functools.partial(f, self), Sampler.patch_filters),
         'channels': None
         }
-    pfacets.set_attributes(obj, defaults, kwargs)
+    pfacets.set_attributes_from_dicts(self, defaults, kwargs)
     self.superpatch_length = self.patch_length * self.subsample * self.cache_size
     self.channel_dimension = int(not self.time_dimension)
     self.load_datasets()
@@ -75,10 +75,10 @@ class Sampler(object):
       self.refresh_cache()
     self.patches_retrieved += num
     gen_func = functools.partial(pfacets.np.sample_array,
-        self.superpatch, self.patch_length, axis=1)
+        self.superpatch, self.patch_length, axis=self.time_dimension)
     gen = iter(gen_func, None)
-    filt = functools.partial(self.patch_filter, self)
-    return np.array(pfacets.generate_filtered(gen, filt, num))
+    # filt = functools.partial(self.patch_filter)
+    return np.array(pfacets.generate_filtered(gen, self.patch_filter, num))
 
   def refresh_cache(self):
     """Cache a subset of all available data in memory.
@@ -91,12 +91,14 @@ class Sampler(object):
     self.superpatch = ds[start:start+self.superpatch_length, self.channels]
     self.patches_retrieved = 0
 
+  # TODO figure out what's going on with mean and variance here to fix this
   def patch_filter(self, patch):
     """Check if patch satisfies selection criteria.
     
     Selection criteria are Boolean-returning functions that take **kwargs as
     the only parameter. They receive `u_std`, `u_max_std`, and `u_max`.
     """ 
+    return True  # TODO standin; accepts all patches
     u = (patch - mean) / std
     u_std = u.std(axis=1)
     max_u = np.max(np.abs(u))

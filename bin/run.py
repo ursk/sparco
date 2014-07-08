@@ -8,14 +8,14 @@ import sys
 import pfacets
 
 ########### SET UP PATH / PARSE COMMAND-LINE ARGUMENTS
-
 sys.path.append(
     os.path.normpath(os.path.join(os.path.dirname(__file__),  '..')))
-# TODO fix this-- the issue is that tokyo is not on the load path
-# sys.path.append(
-#     os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'sparco', 'qn')))
+sys.path.append(
+    os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'sparco', 'qn')))
 
-embed()
+import sparco
+
+# TODO fix this-- the issue is that tokyo is not on the load path
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-c', '--channels',
@@ -66,15 +66,18 @@ config_module = pfacets.load_local_module(path = args.local_config_path,
 local_config = config_module.config if config_module else {}
 config = pfacets.merge(local_config, cli_config)
 
-########### CONFIGURE OUTPUT
-
-if args.produce_output or args.output_path:
-  import sparco.trace
-  sparco.trace.configure(config['trace'])
-
-########### RUN SparseCoder
+########### SPARSE_CODER_OBJECT
 
 sampler = sparco.sampler.Sampler(**config['sampler'])
 [c.setdefault('sampler', sampler) for c in config['nets']]
 sc = sparco.sparse_coder.SparseCoder(config['nets'])
+
+########### CONFIGURE OUTPUT
+
+if args.produce_output or args.output_path:
+  import sparco.trace
+  sparco.trace.configure(sc, config['trace'])
+
+########### RUN SparseCoder
+
 sc.run()

@@ -15,10 +15,10 @@ class Tracer(traceutil.tracer.Tracer):
     logging.info('Round %d: num_iterations = %d, lam = %g, maxit = %d' % tup)
     dir = "{0}_niter_{1}_lam_{2}_maxit_{3}".format(*tup)
     sn_output_path = os.path.join(tracer.output_path, dir)
-    sparco.trace.sp.Tracer.output_path = sn_output_path
-    return orig(self, *args, **kwargs)
+    sn = orig(self, *args, **kwargs)
+    traceutil.tracer.apply_tracer(sparco.trace.sp.Tracer, output_path=sn_output_path, target=sn)
+    return sn
 
   wrappers = {
       'create_spikenet': [t_create_spikenet],
       }
-
