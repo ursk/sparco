@@ -38,7 +38,7 @@ arg_parser.add_argument('-o', '--output-root',
     help='path to directory containing output files')
 arg_parser.add_argument('-s', '--snapshot-interval', default=100, type=int,
     help='number of iterations between basis snapshots')
-arg_parser.add_argument('--trial-dir',
+arg_parser.add_argument('--trial-directory',
     help='name of trial directory located inside root')
 arg_parser.set_defaults(
     inner_directory=True,
@@ -66,7 +66,6 @@ def parse_args():
 ########### BUILD CONFIGURATON
 
 args = parse_args()
-from IPython import embed; embed()
 cli_config = pfacets.map_object_to_dict(args, {
     'input_path': ['sampler', 'input_path'],
     'output_root': ['trace', 'output_root'],
