@@ -5,8 +5,8 @@ import sparco
 
 class SparseCoder(object):
 
-  def __init__(self, configs):
-    self.configs = configs
+  def __init__(self, config):
+    self.configs = config if isinstance(config, list) else [config]
 
   def run(self, phi=None, eta=.00001):
     self.phi, self.eta = phi, eta

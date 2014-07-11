@@ -2,20 +2,22 @@
 from IPython import embed
 
 import argparse
+import copy
 import os
 import sys
 
 import pfacets
 
 ########### SET UP PATH / PARSE COMMAND-LINE ARGUMENTS
+
+# TODO fix this-- the issue is that tokyo is not on the load path
 sys.path.append(
     os.path.normpath(os.path.join(os.path.dirname(__file__),  '..')))
 sys.path.append(
     os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'sparco', 'qn')))
 
 import sparco
-
-# TODO fix this-- the issue is that tokyo is not on the load path
+import sparco.trace
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-c', '--channels',
@@ -28,12 +30,20 @@ arg_parser.add_argument('-l', '--log-level',
     help='level of logging: DEBUG, INFO, WARNING, ERROR, CRITICAL')
 arg_parser.add_argument('-L', '--log-path',
     help='path to log file')
+arg_parser.add_argument('--no-output', action='store_false', dest='produce_output',
+    help='do not write any output')
 arg_parser.add_argument('-O', '--produce-output', action='store_true',
     help='enables output of logging and basis snapshots; not needed if output_path provided')
-arg_parser.add_argument('-o', '--output-path',
+arg_parser.add_argument('-o', '--output-root',
     help='path to directory containing output files')
 arg_parser.add_argument('-s', '--snapshot-interval', default=100, type=int,
     help='number of iterations between basis snapshots')
+arg_parser.add_argument('--trial-dir',
+    help='name of trial directory located inside root')
+arg_parser.set_defaults(
+    inner_directory=True,
+    produce_output=True
+    )
 
 def expand_channel_spec(channel_spec):
   parts = channel_spec.split(',')
@@ -56,28 +66,39 @@ def parse_args():
 ########### BUILD CONFIGURATON
 
 args = parse_args()
+from IPython import embed; embed()
 cli_config = pfacets.map_object_to_dict(args, {
     'input_path': ['sampler', 'input_path'],
-    'output_path': ['trace', 'output_path'],
-    'snapshot_interval': ['trace', 'snapshot_interval']
+    'output_root': ['trace', 'output_root'],
+    'snapshot_interval': ['trace', 'snapshot_interval'],
+    'produce_output': ['produce_output'],
+    'trial_directory': ['trace', 'trial_directory']
     })
 config_module = pfacets.load_local_module(path = args.local_config_path,
     default_name='.sparcorc')
 local_config = config_module.config if config_module else {}
 config = pfacets.merge(local_config, cli_config)
+config.setdefault('run_ladder', True)
 
-########### SPARSE_CODER_OBJECT
+########### RUN
+
+def run_coder(config):
+  sc = sparco.sparse_coder.SparseCoder(config['nets'])
+  if config['produce_output'] or config['output_root']:
+    sparco.trace.configure(coder=sc, **config['trace'])
+  sc.run()
 
 sampler = sparco.sampler.Sampler(**config['sampler'])
-[c.setdefault('sampler', sampler) for c in config['nets']]
-sc = sparco.sparse_coder.SparseCoder(config['nets'])
+for c in config['nets']:
+  c['sampler'] = sparco.sampler.Sampler(**pfacets.merge(config['sampler'], c['sampler']))
 
-########### CONFIGURE OUTPUT
-
-if args.produce_output or args.output_path:
-  import sparco.trace
-  sparco.trace.configure(sc, config['trace'])
-
-########### RUN SparseCoder
-
-sc.run()
+# TODO need to manage this better
+if config['run_ladder']:
+  run_coder(config)
+else:
+  for net in config['nets']:
+    conf = copy.copy(config)
+    conf['nets'] = net
+    if net.has_key('trace'):
+      conf['trace'] = pfacets.merge(conf['trace'], net.pop('trace'))
+    run_coder(conf)

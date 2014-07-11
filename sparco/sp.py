@@ -88,8 +88,10 @@ class Spikenet(object):
       }
     pfacets.set_attributes_from_dicts(self, defaults, kwargs)
 
-    # TODO temp for profiling
+    # TODO temp for profiling; second line is especially hacky
     self.learn_basis = getattr(self, "learn_basis{0}".format(self.basis_method))
+    self.__class__.learn_basis = getattr(self.__class__,
+        'learn_basis{0}'.format(self.basis_method))
     self.create_root_buffers = getattr(self,
           "create_root_buffers{0}".format(self.basis_method))
 

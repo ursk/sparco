@@ -1,3 +1,4 @@
+import logging
 import os
 
 import h5py
@@ -5,6 +6,10 @@ import h5py
 import traceutil.tracer
 
 class Tracer(traceutil.tracer.Tracer):
+
+  def __init__(self, **kwargs):
+    kwargs.setdefault('snapshot_interval', 100)
+    super(Tracer, self).__init__(**kwargs)
 
   def write_snapshot(self):
     self.write_basis()
@@ -40,25 +45,21 @@ class Tracer(traceutil.tracer.Tracer):
 
   ########### CUSTOM DECORATORS
 
-  def t___init__(tracer, orig, self, *args, **kwargs):
-    ret = orig(self, *args, **kwargs)
-    tracer.snapshot_interval = Tracer.snapshot_interval
-    tracer.dump_state(os.path.join(tracer.output_path, 'config.txt'))
-    return ret
-
+  # this stuff has to be implemneted here because I can't currently decorate
+  # __init__ (since the tracer is applied AFTER object initialization)
   def t_run(tracer, orig, self, *args, **kwargs):
-    orig(self, *args, **kwargs)
-    
+    tracer.dump_state(os.path.join(tracer.output_path, 'config.txt'))
+    return orig(self, *args, **kwargs)
 
   def t_iteration(tracer, orig, self, *args, **kwargs):
+    logging.info('Iteration #{0}'.format(self.t))
     ret = orig(self, *args, **kwargs)
     if (self.t > 0 and tracer.snapshot_interval
         and self.t % tracer.snapshot_interval == 0):
       tracer.write_snapshot()
-      tracer.dump_data()
     return ret
 
   wrappers = {
-      '__init__': [t___init__],
+      'run': [t_run],
       'iteration': [t_iteration]
       }

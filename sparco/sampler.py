@@ -47,7 +47,7 @@ class Sampler(object):
 
   def update_configuration_from_datasets(self):
     """Pending decision about how to structure metadata"""
-    if not self.channels:
+    if self.channels is None:
       num_channels = self.get_data_mat(self.datasets[0]).shape[self.channel_dimension]
       self.channels = np.arange(num_channels)
 
