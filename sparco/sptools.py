@@ -1,7 +1,6 @@
 """
 some random tools, slow code.
 """
-from IPython import embed
 
 import collections
 import imp

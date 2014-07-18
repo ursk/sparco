@@ -10,8 +10,6 @@ Note:
 1. The kernels are convolution kernels.
 """
 
-from IPython import embed
-
 import functools
 import os
 import time

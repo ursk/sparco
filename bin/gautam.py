@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-from IPython import embed
-
 import time
 import glob
 import os

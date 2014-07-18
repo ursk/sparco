@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-from IPython import embed
-
 import time
 import glob
 import os
@@ -48,8 +46,6 @@ ladder = [[0.1,	 5,	 2000, 5.],
 					[0.9, 30, 10000, 0.5],
 					[1.0, 35, 40000, 0.5]]
 configs = []
-
-# embed()
 
 # lam, maxit, niter, target
 output_path = os.path.join(args.output_directory,

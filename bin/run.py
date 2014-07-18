@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from IPython import embed
 
 import argparse
 import copy
@@ -15,6 +14,9 @@ sys.path.append(
     os.path.normpath(os.path.join(os.path.dirname(__file__),  '..')))
 sys.path.append(
     os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'sparco', 'qn')))
+for x in ['pfacets', 'traceutil']:
+  sys.path.append(os.path.normpath(os.path.join(os.path.dirname(__file__), '..',
+    '..', 'lib', x)))
 
 import sparco
 import sparco.trace
