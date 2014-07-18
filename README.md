@@ -63,7 +63,7 @@ A configuration file is just a python module that defines a dictionary `config`.
 
 ## Architecture
 
-This codebase is modular. The top-level division of code is between *core*, *data-loading*, and *output* classes.
+The top-level division of code is between *core*, *data-loading*, and *output* classes.
 
 ### Core
 
